@@ -10,7 +10,7 @@ Profiles matter for every install command below: the Desktop app runs the `deskt
 
 ## 1. Publish to npm
 
-The package name `dsh-spend-tracker` is unclaimed, and the package needs no build step: `index.js`, `projection.js`, and `client.js` are the published files, listed in `files`.
+The package name `dsh-spend-tracker` is unclaimed, and the package needs no build step: `index.js`, `projection.js`, and `client.js` are the published files, listed in `files`. You need Node.js 22 or newer with the npm CLI.
 
 ```sh
 npm login
@@ -26,7 +26,7 @@ dsh plugin --profile web add dsh-spend-tracker      # dsh web
 dsh plugin --profile desktop add dsh-spend-tracker  # Desktop, from a terminal
 ```
 
-To cut a release, bump `version` in [`package.json`](../package.json), update [`CHANGELOG.md`](../CHANGELOG.md), commit, then publish and tag:
+To cut a release, bump `version` in [`package.json`](../package.json), update [`CHANGELOG.md`](../CHANGELOG.md), commit, then publish and tag. These commands need the GitHub CLI (`gh`) in addition to npm:
 
 ```sh
 VERSION=$(node -p "require('./package.json').version")
