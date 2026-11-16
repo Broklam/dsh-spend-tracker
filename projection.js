@@ -203,7 +203,13 @@ function ratesFor(config, route) {
   const shipped = Object.hasOwn(config.models, route) ? config.models[route] : Object.hasOwn(config.models, model) ? config.models[model] : null
   const base = remote === null ? (shipped ?? config.fallback) : remote.peak
   if (provided === undefined) {
-    if (remote !== null) return remote
+    if (remote !== null) {
+      // A schedule the user configured is theirs: bill its discount even when
+      // the fetched table carries an off-peak row of its own.
+      return config.scheduleConfigured
+        ? { peak: remote.peak, offPeak: scaledRates(remote.peak, offPeakMultiplier(config)) }
+        : remote
+    }
     if (base === null) return null
     return { peak: base, offPeak: scaledRates(base, offPeakMultiplier(config)) }
   }
@@ -274,6 +280,11 @@ export function normalizeConfig(raw) {
         }
         const model = modelOf(route)
         const shipped = Object.hasOwn(models, model) ? models[model] : null
+        for (const field of RATE_FIELDS) {
+          if (Object.hasOwn(rates, field) && !finiteNonNegative(rates[field])) {
+            warnings.push(`pricing["${route}"].${field} must be a non-negative number; ignoring it`)
+          }
+        }
         // Validate completeness now, but store only the fields the user set:
         // an untouched field follows the refreshed table at lookup time.
         if (completeRates(rates, shipped ?? fallback) === null) {
@@ -461,7 +472,7 @@ function checkView(value) {
   if (!isRecord(value)) fail('view', 'expected an object')
   if (typeof value.currencySymbol !== 'string' || value.currencySymbol === '') fail('view', 'currencySymbol must be a non-empty string')
   if (!isCount(value.decimals)) fail('view', 'decimals must be a non-negative integer')
-  for (const field of ['cost', 'costPeak', 'costOffPeak', 'costInput', 'costCacheRead', 'costCacheWrite', 'costOutput', 'unpricedTokens']) {
+  for (const field of ['cost', 'costPeak', 'costOffPeak', 'saved', 'costInput', 'costCacheRead', 'costCacheWrite', 'costOutput', 'unpricedTokens']) {
     if (!finiteNonNegative(value[field])) fail('view', `${field} must be a non-negative number`)
   }
   checkTokenTotals(value.tokens, 'view.tokens')
@@ -629,6 +640,7 @@ export function buildView(state, config) {
   let costOutput = 0
   let costPeak = 0
   let costOffPeak = 0
+  let saved = 0
   let pricedCalls = 0
   let unpricedCalls = 0
   let unpricedTokens = 0
@@ -645,6 +657,7 @@ export function buildView(state, config) {
     } else {
       const peakCost = costOf(entry.peak, rates.peak)
       const offPeakCost = costOf(entry.offPeak, rates.offPeak)
+      saved += costOf(entry.offPeak, rates.peak) - offPeakCost
       for (const field of RATE_FIELDS) {
         const fieldCost = (entry.peak[field] * rates.peak[field] + entry.offPeak[field] * rates.offPeak[field]) / 1e6
         if (field === 'input') costInput += fieldCost
@@ -681,6 +694,7 @@ export function buildView(state, config) {
     cost: roundCost(costPeak + costOffPeak),
     costPeak: roundCost(costPeak),
     costOffPeak: roundCost(costOffPeak),
+    saved: roundCost(saved),
     costInput: roundCost(costInput),
     costCacheRead: roundCost(costCacheRead),
     costCacheWrite: roundCost(costCacheWrite),

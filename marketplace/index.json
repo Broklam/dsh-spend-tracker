@@ -16,8 +16,8 @@
         "zh": "会话花费"
       },
       "description": {
-        "en": "Estimates what the open chat has cost, priced at DeepSeek's peak or off-peak rate for each request's time, with a breakdown by token bucket, cache hit, activity, and model.",
-        "zh": "估算当前会话到目前为止的花费：按每次请求所在的高峰或非高峰时段价格计算，并按 Token 用量、缓存命中、活动与模型拆分。"
+        "en": "Estimates what the open chat has cost, priced at DeepSeek's peak or off-peak rate for the time each request's usage settled, with a breakdown by token bucket, cache hit, activity, and model.",
+        "zh": "估算当前会话到目前为止的花费：按每次用量结算时所在的高峰或非高峰时段价格计算，并按 Token 用量、缓存命中、活动与模型拆分。"
       },
       "icon": "icons/spend.svg",
       "author": "Broklam",

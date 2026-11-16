@@ -3,11 +3,11 @@
 [![CI](https://github.com/Broklam/dsh-spend-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/Broklam/dsh-spend-tracker/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-See what the chat you have open has spent so far, and where that spend went.
+Estimate what the chat you have open has spent so far, and where that spend went.
 
 Session spend is a [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin. It adds one estimated spend reading to the composer statistics row under the input box, beside the built-in turns/steps and token readings. Click the reading for a breakdown by token bucket, cache hit, activity count, and model.
 
-The estimate follows DeepSeek's real pricing: each request is priced at the peak or off-peak rate for the time its usage settled, the panel names the rate that applies right now, and the price table refreshes itself from DeepSeek's published pricing page.
+The estimate follows DeepSeek's published prices: each request is priced at the peak or off-peak rate for the time its usage settled, the panel names the rate that applies right now, and the price table refreshes itself from DeepSeek's published pricing page.
 
 ## What it shows
 
@@ -132,7 +132,7 @@ Keys match as `provider/model` first, then as a bare model id, so one `deepseek-
 
 [DeepSeek's billing page](https://api-docs.deepseek.com/quick_start/pricing) defines peak hours as **01:00–04:00 and 06:00–10:00 UTC, Monday through Friday, excluding Chinese public holidays**. Every other hour is off-peak at half the peak rate, including weekends and Chinese public holidays in full.
 
-The plugin classifies each usage settlement by its own UTC timestamp, so a session that spans a boundary pays the right rate on each side of it. The panel's status line reads the current clock, not the last model response, so it keeps ticking while you read it. Classification uses each settlement's timestamp; a request that crosses a boundary is charged at the tier of its settlement.
+The plugin classifies each usage settlement by its own UTC timestamp, so a session that spans a boundary pays the right rate on each side of it. The panel's status line reads the current clock, not the last model response, so it keeps ticking while you read it.
 
 Weekday Chinese public holidays for 2026 and 2027 are bundled. `offPeak.holidays` replaces that list, so supply every date you need, including years already bundled.
 
@@ -157,9 +157,18 @@ Weekday Chinese public holidays for 2026 and 2027 are bundled. `offPeak.holidays
 
 ### Keep prices current
 
-Every six hours, and once when the plugin loads, the Host fetches the public pricing document through DeepSeek Harness's web capability (falling back to the process's own HTTP client) and replaces the bundled prices for every model the page still lists with complete, plausible rows; a model the page no longer lists keeps its bundled price. When you have not configured `offPeak`, that same fetch also takes the page's footnote as the peak windows and discount.
+The Host fetches the public pricing document through DeepSeek Harness's web capability, or through the process's own HTTP client when no web provider is available. The fetch runs once when the plugin loads and then every `refreshHours` (6 by default). It replaces the bundled prices for every model the page still lists with a complete peak and off-peak price; a model the page no longer lists keeps its bundled price. That same fetch also takes the page's footnote as the peak windows and discount unless you configured `offPeak` yourself.
 
-Nothing is sent with the request beyond a default user agent. If the fetch fails or the page is unreadable, the current table stays in place, the failure is written once to the host log, and the refresh is retried after 15 minutes before it settles back into its normal period. `pricingSource: 'off'` stops the fetch entirely; any other value is read as `'deepseek'`.
+```yaml
+- id: spend-tracker
+  name: dsh-spend-tracker
+  config:
+    pricingSource: deepseek   # 'off' stops the fetch and keeps local prices
+    refreshHours: 6           # integer 1-168
+    pricingUrl: https://api-docs.deepseek.com/quick_start/pricing.md   # https only
+```
+
+An invalid option is reported in the host log and replaced by its default. The request carries fixed headers (a `dsh-spend-tracker` user agent and an `Accept` header) and nothing else. If the fetch fails or the page is unreadable, the current table stays in place, the failure is written once to the host log, and the refresh is retried after 15 minutes (up to three times) before it settles back into its normal period.
 
 Refreshed prices apply when a session's value is next recomputed — normally its next activity, or when it is reopened. An idle open session keeps its last reading until then.
 
@@ -175,7 +184,7 @@ This is an estimate, not an invoice. Search and fetch calls, file parsing, speec
 
 ## Privacy
 
-The plugin reads the configured pricing page (DeepSeek's by default) over HTTPS — once when it loads and then every `refreshHours` — and sends no session content, credential, or identifier beyond the default user agent. It has no account, telemetry, or update channel. Everything else stays local: it folds usage that is already in the session log you control, and the result lives in memory and in the local projection cache. Set `pricingSource: 'off'` to make it fully offline.
+The plugin reads the configured pricing page (DeepSeek's by default) over HTTPS — once when it loads and then every `refreshHours` — with fixed request headers and no session content, credential, or identifier. It has no account, telemetry, or update channel. Everything else stays local: it folds usage that is already in the session log you control, and the result lives in memory and in the local projection cache. Set `pricingSource: 'off'` to make it fully offline.
 
 ## Compatibility
 
@@ -209,7 +218,7 @@ node --check index.js && node --check projection.js && node --check pricing.js &
 node --test test/*.test.mjs
 ```
 
-The tests cover peak and off-peak classification (including weekends, holidays, and window boundaries), the pricing-page parser and its fallbacks, retry bills, per-tier replacement, per-model attribution, unpriced models, compaction calls, activity counters, live repricing, the refresh lifecycle, the browser placement and status helpers, state validation, the wire contract, and that the English and Chinese copy tables stay in sync. They run against a fixture of the pricing page fetched on 2026-11-16, so a layout change on DeepSeek's side shows up as a parser warning instead of a silently mispriced table. There are no runtime dependencies to install.
+The tests cover peak and off-peak classification (including weekends, holidays, and window boundaries), the pricing-page parser and its fallbacks, retry bills, per-tier replacement, per-model attribution, unpriced models, compaction calls, activity counters, live repricing, the refresh registration and its fallbacks, the browser placement and status helpers, state validation, the wire contract, and that the English and Chinese copy tables stay in sync. They run against a fixture of the pricing page fetched on 2026-11-16, so a layout change on DeepSeek's side shows up as a parser warning instead of a silently mispriced table. There are no runtime dependencies to install.
 
 ## Marketplaces
 

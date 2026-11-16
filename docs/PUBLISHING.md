@@ -82,7 +82,7 @@ MIT
 Example panel output and the rendering rules are in the README. Add a screenshot of the reading under the input box before submitting.
 
 ### Notes
-Local estimates only. The sole network request is a background HTTPS GET for DeepSeek's public pricing page (no credentials, no session data, no telemetry); prices come from that page when it is reachable and from a bundled table otherwise. Each request is priced at the published peak or off-peak rate for the time its usage settled.
+Local estimates only. The sole network request is a background HTTPS GET for DeepSeek's public pricing page (no credentials, no session data, no telemetry); prices come from that page when it is reachable, and otherwise from the bundled table or the last table it fetched. Each request is priced at the published peak or off-peak rate for the time its usage settled.
 
 ### Pre-submission checklist
 - [x] Repository is public
@@ -112,7 +112,7 @@ An index pins an exact version and source. After each release, add a version ent
 
 ```json
 {
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publishTimestamp": 1794834000,
   "source": { "type": "npm" },
   "engines": { "dsh": ">=0.2.2-rc.1 <0.3.0" }
@@ -123,7 +123,7 @@ A Git source stays useful before an npm release or for a pinned commit. The comm
 
 ```json
 {
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publishTimestamp": 1794834000,
   "source": {
     "type": "git",
@@ -149,4 +149,4 @@ dsh plugin --profile web add github:Broklam/dsh-spend-tracker
 dsh plugin --profile web add ./dsh-spend-tracker
 ```
 
-In the Desktop app, open **Plugins → Add plugin** and pick the package directory instead; the Desktop app runs the `desktop` profile.
+In the Desktop app, open **Plugins → Add plugin** and paste the package directory's absolute path instead; the Desktop app runs the `desktop` profile.

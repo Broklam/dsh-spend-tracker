@@ -45,11 +45,11 @@ window.__ModuleLoader__.load({
       'row.compactions': 'Compactions',
       'value.moneyTokens': '{cost} · {tokens}',
       'value.tokensOnly': '{tokens}',
-      'note.unpriced': 'Unpriced model usage: {calls} calls, {tokens} tokens. Add its rates under pricing in cordis.patch.yml.',
+      'note.unpriced': 'Unpriced model usage — calls: {calls}, tokens: {tokens}. Add that model\'s rates under pricing in cordis.patch.yml.',
       'note.models': 'Showing {shown} of {total} models.',
       'note.estimate': 'Estimated from DeepSeek\'s prices, not a billed amount.',
       'note.offPeakSaved': 'Off-peak rates lowered this estimate by about {amount}.',
-      'note.rates': 'Prices refreshed from the pricing page {when}.',
+      'note.rates': 'Rate table refreshed from the pricing page {when}.',
       'note.ratesBundled': 'Bundled DeepSeek prices (the live refresh is off or has not succeeded).',
       'time.justNow': 'just now',
       'time.minutesAgo': '{minutes} min ago',
@@ -91,11 +91,11 @@ window.__ModuleLoader__.load({
       'row.compactions': '上下文压缩',
       'value.moneyTokens': '{cost} · {tokens}',
       'value.tokensOnly': '{tokens}',
-      'note.unpriced': '未定价的模型用量：调用 {calls} 次，Token {tokens} 个。可在 cordis.patch.yml 的 pricing 中为其补充价格。',
+      'note.unpriced': '未定价的模型用量 — 调用：{calls} 次，Token：{tokens} 个。可在 cordis.patch.yml 的 pricing 中为该模型补充价格。',
       'note.models': '仅显示 {total} 个模型中的前 {shown} 个。',
       'note.estimate': '按 DeepSeek 价格估算，并非实际账单金额。',
       'note.offPeakSaved': '非高峰费率使本次估算减少约 {amount}。',
-      'note.rates': '价格来自价格页，{when}更新。',
+      'note.rates': '价格表已从定价页更新：{when}。',
       'note.ratesBundled': '使用内置 DeepSeek 价格（实时刷新已关闭或尚未成功）。',
       'time.justNow': '刚刚',
       'time.minutesAgo': '{minutes} 分钟前',
@@ -178,7 +178,10 @@ window.__ModuleLoader__.load({
         --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
       }
       .dsh-spend-panel-head {
-        flex: none;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: var(--dsw-specific-menu, var(--dsw-alias-bg-overlay, Canvas));
       }
       .dsh-spend-panel-body {
         flex: 1 1 auto;
@@ -527,6 +530,7 @@ window.__ModuleLoader__.load({
         }
         const closeOnKey = event => {
           if (event.key !== 'Escape') return
+          event.stopPropagation()
           setOpen(false)
         }
         document.addEventListener('pointerdown', closeOnPointer, true)
@@ -683,11 +687,9 @@ window.__ModuleLoader__.load({
       if (priced) {
         notes.push(h('div', { className: 'dsh-spend-note', key: 'estimate' }, t('note.estimate')))
       }
-      if (priced && spend.costOffPeak > 0 && spend.schedule?.enabled) {
-        const discount = spend.schedule.discount
-        const saved = discount < 1 ? spend.costOffPeak * (discount / (1 - discount)) : 0
-        const savedText = formatCost(saved, spend.currencySymbol, spend.decimals)
-        if (saved > 0 && !savedText.startsWith('<')) {
+      if (priced && spend.saved > 0 && spend.schedule?.enabled) {
+        const savedText = formatCost(spend.saved, spend.currencySymbol, spend.decimals)
+        if (!savedText.startsWith('<')) {
           notes.push(h('div', { className: 'dsh-spend-note', key: 'offPeakSaved' }, t('note.offPeakSaved', { amount: savedText })))
         }
       }
@@ -746,14 +748,14 @@ window.__ModuleLoader__.load({
             'aria-label': t('dialog.title'),
             style: panelStyle,
           },
-            h('div', { className: 'dsh-spend-panel-head' },
-              h('div', { className: 'dsh-spend-title' },
-                h('span', { className: 'dsh-spend-title-label' }, h(SpendGlyph), t('dialog.title')),
-                h('span', { className: 'dsh-spend-title-value' }, dialogValue),
-              ),
-              status,
-            ),
             h('div', { className: 'dsh-spend-panel-body' },
+              h('div', { className: 'dsh-spend-panel-head' },
+                h('div', { className: 'dsh-spend-title' },
+                  h('span', { className: 'dsh-spend-title-label' }, h(SpendGlyph), t('dialog.title')),
+                  h('span', { className: 'dsh-spend-title-value' }, dialogValue),
+                ),
+                status,
+              ),
               h('div', { className: 'dsh-spend-rule' }),
               h(Section, { title: priced ? t('section.spend') : t('section.tokens') }, spendRows),
               h(Section, { title: t('section.activity') }, rows(activityPairs)),

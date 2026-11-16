@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] — 2026-11-16
+
+### Fixed
+
+- A user-configured off-peak discount is now applied to every table, including a freshly fetched one whose own off-peak rows differ, so the status line and the charged rate agree.
+- The off-peak saving note is computed from the actual tier prices rather than the discount fraction, so per-model off-peak rows and overrides are reported correctly.
+- The panel header now sticks to the top of its scroll area and shares the rows' width, so the title and values stay aligned and visible while long content scrolls.
+- Escape now stops propagation, so closing the panel does not also trigger a host shortcut.
+
+### Changed
+
+- README documents the refresh options (`pricingSource`, `refreshHours`, `pricingUrl`), their ranges and defaults, and the fixed request headers.
+- A configured rate that is present but non-numeric is reported as a warning instead of being silently ignored.
+
 ## [0.2.0] — 2026-11-16
 
 ### Added
@@ -18,12 +32,11 @@ All notable changes to this project are documented here. The format follows [Kee
 - A refreshed price table reprices the session on the next read, with no state rewrite. While a session is open and idle, the current reading keeps its previous prices until the session's next activity or reopen.
 - An override that sets only some rates now follows the refreshed table for the rest, instead of freezing the other fields at activation time.
 - Notes: the estimate line names DeepSeek's prices, an off-peak line reports what the discount saved, and a rate-source line reports when the table was last refreshed.
-- The panel is measured once when it opens and pinned at that position and size, so live updates scroll inside the fixed box instead of moving the window; the title and rate status stay above the scroll area. Resizing the viewport re-derives the position from the stored size.
 
 ### Fixed
 
 - The panel no longer crawls upward while values update, and it no longer scrolls away from a bottom-docked pill when its content grows.
-- A "25% off" discount is now billed as 25% off rather than as 75% of peak; the status line reports the same percentage that is charged.
+- A "25% off" discount is now billed as 25% off rather than as 75% of peak.
 
 ## [0.1.3] — 2026-11-16
 
@@ -71,6 +84,7 @@ Initial release.
 - Format-1 DSH plugin index and GitHub Pages workflow for the Discover tab.
 - Unit tests for the fold, state validation, and wire contract.
 
+[0.2.1]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.2.1
 [0.2.0]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.2.0
 [0.1.3]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.1.3
 [0.1.2]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.1.2

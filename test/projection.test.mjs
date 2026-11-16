@@ -368,6 +368,10 @@ test('a user-configured off-peak schedule survives a price refresh', () => {
     schedule: { windows: [{ days: [0, 1, 2, 3, 4, 5, 6], start: 0, end: 120 }], discount: 0.5 },
   }, { url: 'https://example.test/pricing.md', updatedAt: 1 })
   assert.deepEqual(resolved.schedule, before)
+  const off = wire([
+    assistant(1, 1, { inputTokens: 1_000_000, outputTokens: 0 }, 'deepseek-account', 'deepseek-flash', OFF_PEAK),
+  ], resolved)
+  assert.equal(off.view.costOffPeak, 0.75, 'the user\'s 25% discount wins over the fetched 50% off-peak row')
 })
 
 test('an unusable refreshed table leaves the current prices alone', () => {
@@ -448,6 +452,12 @@ test('the model row cap reports how many routes were kept', () => {
 
 test('the unit declares state version 3 so stale checkpoints refold', () => {
   assert.equal(createProjectionDefinition(config).stateVersion, 3)
+})
+
+test('a non-numeric configured rate is reported instead of silently dropped', () => {
+  const resolved = normalizeConfig({ pricing: { 'deepseek-flash': { output: '1.30' } } })
+  assert.ok(resolved.warnings.some(warning => warning.includes('output')))
+  assert.deepEqual(resolved.userPricing['deepseek-flash'], {})
 })
 
 test('a non-object pricing entry is ignored instead of reusing other rates', () => {
