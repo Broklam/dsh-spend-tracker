@@ -32,7 +32,7 @@
           "source": {
             "type": "git",
             "url": "https://github.com/Broklam/dsh-spend-tracker",
-            "commit": "fdad3508d8676fec0ba8290fc93da3a4772af422"
+            "commit": "af740bbbe3ffe7c4a951c3bb6053e758321facd3"
           },
           "engines": {
             "dsh": ">=0.2.2-rc.1 <0.3.0"
