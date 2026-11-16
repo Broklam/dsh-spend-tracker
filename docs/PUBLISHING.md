@@ -6,6 +6,8 @@ DeepSeek Harness has no central plugin store. There are three places a plugin ca
 2. **DSH Plugin Hub** ([dsh-plugin.org](https://dsh-plugin.org)) — a community directory. Public repositories tagged `dsh-plugin` are indexed automatically; npm-published packages also appear in the in-app Plugin Hub for one-click install.
 3. **Direct install** — npm, GitHub, or a local clone, without any marketplace.
 
+Profiles matter for every install command below: the Desktop app runs the `desktop` profile, and `dsh web` runs the `web` profile. The Plugin Hub's requirement names the `web` profile explicitly, so the README keeps that form for the marketplace, while Desktop users install from **Plugins → Add plugin** or with `dsh plugin --profile desktop add …`.
+
 ## 1. Publish to npm
 
 The package name `dsh-spend-tracker` is unclaimed, and the package needs no build step: `index.js`, `projection.js`, and `client.js` are the published files, listed in `files`.
@@ -17,19 +19,21 @@ npm publish
 
 `publishConfig.access` is `public`, and the package is not private. Verify the result with `npm view dsh-spend-tracker version`.
 
-Once published, the install command in the README works as written:
+Once published, the npm install works as written:
 
 ```sh
-dsh plugin --profile web add dsh-spend-tracker
+dsh plugin --profile web add dsh-spend-tracker      # dsh web
+dsh plugin --profile desktop add dsh-spend-tracker  # Desktop, from a terminal
 ```
 
-To cut a release, bump `version` in `package.json`, update [`CHANGELOG.md`](../CHANGELOG.md), commit, then publish and tag:
+To cut a release, bump `version` in [`package.json`](../package.json), update [`CHANGELOG.md`](../CHANGELOG.md), commit, then publish and tag:
 
 ```sh
+VERSION=$(node -p "require('./package.json').version")
 npm publish
-git tag v0.1.0
-git push origin v0.1.0
-gh release create v0.1.0 --generate-notes
+git tag "v$VERSION"
+git push origin "v$VERSION"
+gh release create "v$VERSION" --generate-notes
 ```
 
 ## 2. Submit to the DSH Plugin Hub
@@ -47,14 +51,16 @@ The hub crawls public repositories and generates a listing. Requirements, all al
 Two actions complete the submission:
 
 1. Keep the npm publish from step 1 current. Without an npm package the site still lists the repository, but the in-app Plugin Hub only shows one-command installs.
-2. Optionally open an issue in [dshplugin/dsh-plugin-hub](https://github.com/dshplugin/dsh-plugin-hub/issues/new) so a reviewer confirms the listing faster. The submission form is on [dsh-plugin.org/submit](https://dsh-plugin.org/submit). Use this content:
+2. Open a submission issue in [dshplugin/dsh-plugin-hub](https://github.com/dshplugin/dsh-plugin-hub/issues/new) to have the listing reviewed, using the template from [dsh-plugin.org/submit](https://dsh-plugin.org/submit). Use this exact format:
 
 ```markdown
+Title: [Plugin submission] Broklam/dsh-spend-tracker — see what the open chat has spent, broken down by tokens, cache, activity, and model
+
 ### Repository
 https://github.com/Broklam/dsh-spend-tracker
 
 ### One-line value
-Shows what the open chat has cost so far and breaks the estimate down by token bucket, cache hit, activity, and model.
+Shows what the open chat has spent so far and breaks the estimate down by token bucket, cache hit, activity, and model.
 
 ### Category
 UI & Experience
@@ -63,13 +69,23 @@ UI & Experience
 dsh plugin --profile web add dsh-spend-tracker
 
 ### Compatibility
-DeepSeek Harness >= 0.2.2-rc.1; Desktop and web profiles; no runtime dependencies.
+DeepSeek Harness >= 0.2.2-rc.1 < 0.3.0; Desktop and web profiles; no runtime dependencies.
 
 ### License
 MIT
 
+### Screenshots / demo
+Example panel output and the rendering rules are in the README. Add a screenshot of the reading under the message box before submitting.
+
 ### Notes
-Local estimates only: no network requests, no credentials, no telemetry. Prices come from a configurable per-million-token table; default rates are DeepSeek's official peak rates.
+Local estimates only: no network requests, no credentials, no telemetry. Prices come from a configurable per-million-token table; default rates are DeepSeek's official peak rates, and off-peak usage bills about half.
+
+### Pre-submission checklist
+- [x] Repository is public
+- [x] GitHub topic `dsh-plugin` added
+- [x] README includes the install command
+- [x] Plugin exports an `apply(ctx)` module
+- [x] Repository root includes a `package.json`
 ```
 
 After listing, the detail page is `https://dsh-plugin.org/plugins/Broklam/dsh-spend-tracker`. Add the badge to the README:
@@ -80,7 +96,7 @@ After listing, the detail page is `https://dsh-plugin.org/plugins/Broklam/dsh-sp
 
 ## 3. Publish a DSH plugin index
 
-[`marketplace/index.json`](../marketplace/index.json) is a format-1 index with one plugin and one version. `.github/workflows/pages.yml` publishes the `marketplace/` directory to GitHub Pages on every push that touches it, so the index is live at:
+[`marketplace/index.json`](../marketplace/index.json) is a format-1 index with one plugin and its released versions. `.github/workflows/pages.yml` publishes the `marketplace/` directory to GitHub Pages on every push that touches it, so the index is live at:
 
 ```text
 https://broklam.github.io/dsh-spend-tracker/index.json
@@ -88,33 +104,33 @@ https://broklam.github.io/dsh-spend-tracker/index.json
 
 Users add that URL in **Plugins → Discover → Add index source** after enabling **Custom plugin indexes**. A fork needs one setup step first: enable Pages with **GitHub Actions** as the source (Settings → Pages → Build and deployment → Source: GitHub Actions), or run `gh api --method POST repos/<owner>/<repo>/pages -f build_type=workflow`.
 
-An index pins an exact version and source. After each release, update the version entry: `version`, `publishTimestamp` (Unix seconds), and `source`. Prefer npm after step 1, because it is the install path the Plugin Hub also uses:
+An index pins an exact version and source. After each release, add a version entry and keep the older ones for users who pin versions. Prefer npm after step 1, because it is the install path the Plugin Hub also uses:
 
 ```json
 {
-  "version": "0.1.0",
-  "publishTimestamp": 1794825600,
+  "version": "0.1.1",
+  "publishTimestamp": 1794834000,
   "source": { "type": "npm" },
-  "engines": { "dsh": ">=0.2.2-rc.1" }
+  "engines": { "dsh": ">=0.2.2-rc.1 <0.3.0" }
 }
 ```
 
-A Git source stays useful before an npm release or for a pinned commit:
+A Git source stays useful before an npm release or for a pinned commit. The commit must be the full 40-character sha, and the package is at the repository root, so no `path` is needed:
 
 ```json
 {
-  "version": "0.1.0",
-  "publishTimestamp": 1794825600,
+  "version": "0.1.1",
+  "publishTimestamp": 1794834000,
   "source": {
     "type": "git",
     "url": "https://github.com/Broklam/dsh-spend-tracker",
     "commit": "<40-character sha>"
   },
-  "engines": { "dsh": ">=0.2.2-rc.1" }
+  "engines": { "dsh": ">=0.2.2-rc.1 <0.3.0" }
 }
 ```
 
-The index format is documented in the DSH user guide, section **Plugin indexes**. Check the file against the format rules after editing: DSH rejects the whole index when one field is invalid and shows the offending JSON path under the source in **Manage index sources…**.
+The index format is documented in the DSH user guide, section **Plugin indexes**. Check every edit against the format rules: DSH rejects the whole index when one field is invalid and shows the offending JSON path under the source in **Manage index sources…**. The CI workflow validates the file's structure, the icon path, commit shape, and version entries before a push reaches Pages.
 
 ## 4. Direct install without a marketplace
 
@@ -129,4 +145,4 @@ dsh plugin --profile web add github:Broklam/dsh-spend-tracker
 dsh plugin --profile web add ./dsh-spend-tracker
 ```
 
-In the Desktop app, open **Plugins → Add plugin** and pick the package directory instead.
+In the Desktop app, open **Plugins → Add plugin** and pick the package directory instead; the Desktop app runs the `desktop` profile.

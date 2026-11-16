@@ -2,13 +2,14 @@
  * Pure fold behind the `sessionSpend` session projection: provider-reported
  * token usage becomes an estimated cost plus token, call, and activity totals.
  *
- * The fold is event-shaped like `@deepseek-ai/dsh-token-meter`'s `tokenUsage`
- * unit: one usage sample is attributed to the (turn, step) it belongs to, a
- * retried attempt replaces the sample it supersedes instead of adding a second
- * one, and `llm/retry-started` drops a sample whose request never settled.
- * Cost is derived in the wire view from token buckets and a per-model rate
- * table, so a pricing change reprices existing sessions instead of rewriting
- * durable state.
+ * The fold follows `@deepseek-ai/dsh-token-meter`'s `tokenUsage` unit: one
+ * usage sample is attributed to the (turn, step) it belongs to, a settlement
+ * that repeats a step replaces the earlier sample, and `llm/retry-started`
+ * closes the replacement slot so the retried attempt adds instead of replacing.
+ * A retried attempt that already streamed was billable, so its tokens stay
+ * counted. Cost is derived in the wire view from token buckets and a per-model
+ * rate table, so a pricing change reprices existing sessions instead of
+ * rewriting durable state.
  *
  * State is plain JSON (the projection cache requires it) and is checkpointed,
  * so every field is validated on restore by {@link stateSchema}.
@@ -119,9 +120,9 @@ function lastStreamUsage(stream) {
   return undefined
 }
 
-/** Normalize one rate table from configuration; partial tables inherit defaults. */
-function normalizeRates(raw, base) {
-  const rates = { ...base }
+/** Read the non-negative rates a configured table provides. */
+function readRates(raw) {
+  const rates = {}
   if (!isRecord(raw)) return rates
   for (const field of RATE_FIELDS) {
     if (finiteNonNegative(raw[field])) rates[field] = raw[field]
@@ -130,11 +131,28 @@ function normalizeRates(raw, base) {
 }
 
 /**
+ * Merge configured rates over a base and keep the result only when it is
+ * complete; a route with a missing rate cannot be priced honestly.
+ * @param raw - the configured table.
+ * @param base - complete fallback rates, or null when the route has none.
+ * @returns the complete table, or null.
+ */
+function completeRates(raw, base) {
+  const rates = { ...base }
+  const provided = readRates(raw)
+  for (const field of RATE_FIELDS) {
+    if (provided[field] !== undefined) rates[field] = provided[field]
+  }
+  return RATE_FIELDS.every(field => finiteNonNegative(rates[field])) ? rates : null
+}
+
+/**
  * Normalize a raw plugin `config` value into the fold's pricing options.
- * Unknown keys and malformed values are ignored; every rate table is complete.
+ * Malformed values are ignored and reported, so a half-configured price table
+ * leaves a route visibly unpriced instead of billing it at borrowed rates.
  * @param raw - the loader row's `config` value, possibly undefined.
- * @returns currency symbol, display precision, rate tables, and whether the
- * shipped peak-rate table is still in use untouched.
+ * @returns currency symbol, display precision, complete rate tables, whether
+ * the shipped peak-rate table is still in use, and configuration warnings.
  */
 export function normalizeConfig(raw) {
   const config = isRecord(raw) ? raw : {}
@@ -144,25 +162,44 @@ export function normalizeConfig(raw) {
   const decimals = Number.isSafeInteger(config.decimals) && config.decimals >= 0 && config.decimals <= 6
     ? config.decimals
     : DEFAULT_DECIMALS
+  const warnings = []
   const pricing = Object.create(null)
   for (const [model, rates] of Object.entries(BUILTIN_RATES)) pricing[model] = { ...rates }
+
+  // The fallback prices routes nothing else covers, so it must be complete on its own.
+  let fallback = null
+  if (config.defaultPricing !== undefined && config.defaultPricing !== null) {
+    fallback = isRecord(config.defaultPricing) ? completeRates(config.defaultPricing, null) : null
+    if (fallback === null) {
+      warnings.push('defaultPricing needs input, cacheRead, cacheWrite, and output; ignoring it')
+    }
+  }
+
   // The shipped peak-rate caveat stays true while every shipped model still
   // bills from its shipped table; pricing an unrelated route changes nothing.
   let overridden = false
-  if (isRecord(config.pricing)) {
-    for (const [route, rates] of Object.entries(config.pricing)) {
-      if (route === '' || !isRecord(rates)) continue
-      const model = route.includes('/') ? route.slice(route.indexOf('/') + 1) : route
-      if (Object.hasOwn(BUILTIN_RATES, model)) overridden = true
-      pricing[route] = normalizeRates(rates, pricing[route] ?? BUILTIN_RATES['deepseek-flash'])
+  if (config.pricing !== undefined && config.pricing !== null) {
+    if (!isRecord(config.pricing)) {
+      warnings.push('pricing must be an object; ignoring it')
+    } else {
+      for (const [route, rates] of Object.entries(config.pricing)) {
+        if (route === '') {
+          warnings.push('pricing keys must be a model id or a provider/model route')
+          continue
+        }
+        const model = route.includes('/') ? route.slice(route.indexOf('/') + 1) : route
+        const shipped = Object.hasOwn(BUILTIN_RATES, model) ? BUILTIN_RATES[model] : null
+        const complete = completeRates(rates, shipped ?? fallback)
+        if (complete === null) {
+          warnings.push(`pricing["${route}"] needs all four rates (input, cacheRead, cacheWrite, output); ignoring it`)
+          continue
+        }
+        if (shipped !== null) overridden = true
+        pricing[route] = complete
+      }
     }
   }
-  const fallback = config.defaultPricing === null
-    ? null
-    : isRecord(config.defaultPricing)
-      ? normalizeRates(config.defaultPricing, BUILTIN_RATES['deepseek-flash'])
-      : null
-  return { currencySymbol: symbol, decimals, pricing, fallback, shippedRates: !overridden }
+  return { currencySymbol: symbol, decimals, pricing, fallback, shippedRates: !overridden, warnings }
 }
 
 /** Resolve the rate table for one route: exact route, bare model id, then fallback. */
@@ -330,9 +367,11 @@ export function createProjectionDefinition(config) {
         case 'llm/retry-started': {
           const next = { ...state, retries: state.retries + 1 }
           const sample = state.sample
+          // The superseded attempt's tokens stay counted: it was a billable
+          // request. Closing the slot only stops the next settlement from
+          // replacing it under the tokenUsage unit's rule.
           if (sample === null || sample.turn !== event.data.turn || sample.step !== event.data.step) return next
-          // The retried attempt never settled a message, so its sample is dropped.
-          return { ...next, models: withModelDelta(next.models, sample.route, negate(sample.units), -1), calls: Math.max(0, next.calls - 1), sample: null }
+          return { ...next, sample: null }
         }
         case 'assistant/message':
         case 'assistant/attempt': {

@@ -63,16 +63,19 @@ test('a repeated settlement for the same step replaces the earlier sample', () =
   assert.equal(view.tokens.output, 20)
 })
 
-test('a started retry drops the sample of the attempt it supersedes', () => {
+test('a retried attempt stays billable, so both attempts count', () => {
+  // Matches the host tokenUsage unit: retry-started closes the replacement slot,
+  // and the retried attempt's settlement adds instead of replacing.
   const { state, view } = wire([
     assistant(2, 1, { inputTokens: 500, outputTokens: 50 }),
     { type: 'llm/retry-started', data: { turn: 2, step: 1, retry: 1 } },
     assistant(2, 1, { inputTokens: 600, outputTokens: 60 }),
   ])
   assert.equal(view.retries, 1)
-  assert.equal(state.calls, 1)
-  assert.equal(view.tokens.input, 600)
-  assert.equal(view.tokens.output, 60)
+  assert.equal(state.calls, 2)
+  assert.equal(view.tokens.input, 1100)
+  assert.equal(view.tokens.output, 110)
+  assert.equal(view.models[0].calls, 2)
 })
 
 test('samples from different steps accumulate', () => {
@@ -131,9 +134,36 @@ test('an unpriced model reports tokens instead of a fabricated cost', () => {
 test('defaultPricing prices a route missing from the table', () => {
   const { view } = wire([
     assistant(1, 1, { inputTokens: 2_000_000, outputTokens: 0 }, 'other-provider', 'mystery-model'),
-  ], normalizeConfig({ defaultPricing: { input: 0.5 } }))
+  ], normalizeConfig({ defaultPricing: { input: 0.5, cacheRead: 0.05, cacheWrite: 0.5, output: 2 } }))
   assert.equal(view.cost, 1)
   assert.equal(view.unpricedCalls, 0)
+})
+
+test('an incomplete defaultPricing is ignored with a warning', () => {
+  const config = normalizeConfig({ defaultPricing: { input: 0.5 } })
+  assert.equal(config.fallback, null)
+  assert.equal(config.warnings.length, 1)
+  const { view } = wire([
+    assistant(1, 1, { inputTokens: 1_000, outputTokens: 10 }, 'other-provider', 'mystery-model'),
+  ], config)
+  assert.equal(view.unpricedCalls, 1)
+})
+
+test('a new route needs all four rates instead of borrowing another model\'s', () => {
+  const config = normalizeConfig({ pricing: { 'openai/gpt-5': { input: 1.25 } } })
+  assert.equal(config.warnings.length, 1)
+  const { view } = wire([
+    assistant(1, 1, { inputTokens: 1_000_000, outputTokens: 1_000_000 }, 'openai', 'gpt-5'),
+  ], config)
+  assert.equal(view.unpricedCalls, 1)
+  assert.equal(view.cost, 0)
+})
+
+test('a partial override of a shipped model inherits that model\'s own rates', () => {
+  const config = normalizeConfig({ pricing: { 'deepseek-v4-pro': { output: 8 } } })
+  assert.deepEqual(config.warnings, [])
+  assert.equal(config.pricing['deepseek-v4-pro'].input, BUILTIN_RATES['deepseek-v4-pro'].input)
+  assert.equal(config.pricing['deepseek-v4-pro'].output, 8)
 })
 
 test('a compaction summary is charged as its own summarize call', () => {
@@ -225,9 +255,10 @@ test('the peak-rate caveat follows whether a shipped model was repriced', () => 
   assert.equal(wire([]).view.peakRates, true)
   assert.equal(wire([], normalizeConfig({ currencySymbol: '$' })).view.peakRates, true)
   // Pricing another provider leaves every shipped DeepSeek row on its peak table.
-  assert.equal(wire([], normalizeConfig({ pricing: { 'openai/gpt-5': { output: 10 } } })).view.peakRates, true)
+  const otherProvider = normalizeConfig({ pricing: { 'openai/gpt-5': { input: 1.25, cacheRead: 0.125, cacheWrite: 1.25, output: 10 } } })
+  assert.equal(wire([], otherProvider).view.peakRates, true)
   // A fallback only prices routes the shipped table does not know.
-  assert.equal(wire([], normalizeConfig({ defaultPricing: { input: 1 } })).view.peakRates, true)
+  assert.equal(wire([], normalizeConfig({ defaultPricing: { input: 1, cacheRead: 0.1, cacheWrite: 1, output: 4 } })).view.peakRates, true)
   // Replacing a shipped model's rate, directly or by route, drops the caveat.
   assert.equal(wire([], normalizeConfig({ pricing: { 'deepseek-flash': { output: 2 } } })).view.peakRates, false)
   assert.equal(wire([], normalizeConfig({ pricing: { 'deepseek-account/deepseek-v4-pro': { input: 1 } } })).view.peakRates, false)

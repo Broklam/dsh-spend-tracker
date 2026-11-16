@@ -5,8 +5,9 @@
  * the browser half, which renders it in the composer dock.
  *
  * The row's `config` is normalized here rather than declared as a plugin
- * `Config`, so the bundle ships without a schema dependency. List price tables
- * are overridable from the profile's `cordis.patch.yml`.
+ * `Config`, so the bundle ships without a schema dependency. Rate tables are
+ * overridable from the profile's `cordis.patch.yml`; a malformed table is
+ * ignored with a warning instead of pricing a route at borrowed rates.
  */
 
 import { createProjectionDefinition, normalizeConfig } from './projection.js'
@@ -26,5 +27,8 @@ export const inject = ['sessionProjections']
  */
 export async function apply(ctx, config) {
   const resolved = normalizeConfig(config)
+  if (typeof ctx.logger?.warn === 'function') {
+    for (const warning of resolved.warnings) ctx.logger.warn(`spend-tracker: ${warning}`)
+  }
   await ctx.sessionProjections.register(createProjectionDefinition(resolved))
 }
