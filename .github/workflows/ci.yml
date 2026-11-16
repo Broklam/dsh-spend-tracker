@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Fold tests and syntax checks
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Check JavaScript syntax
+        run: |
+          node --check index.js
+          node --check projection.js
+          node --check client.js
+      - name: Run projection tests
+        run: node --test test/projection.test.mjs
+      - name: Validate manifest and locale metadata
+        run: |
+          node -e "for (const f of ['package.json', 'locale/en.json', 'locale/zh.json']) JSON.parse(require('fs').readFileSync(f, 'utf8'))"
+          node -e "const { readFileSync } = require('fs'); const en = JSON.parse(readFileSync('locale/en.json')); const zh = JSON.parse(readFileSync('locale/zh.json')); if (!en.meta.title || !en.meta.description || !zh.meta.title || !zh.meta.description) throw new Error('missing plugin metadata')"
+      - name: Validate the plugin index when present
+        run: |
+          if [ -f marketplace/index.json ]; then
+            node -e "const { readFileSync } = require('fs'); const index = JSON.parse(readFileSync('marketplace/index.json')); if (index.format !== 1 || !Array.isArray(index.plugins) || index.plugins.length === 0) throw new Error('invalid plugin index'); for (const plugin of index.plugins) { if (!plugin.name || !Array.isArray(plugin.versions) || plugin.versions.length === 0) throw new Error('plugin needs a name and versions'); for (const version of plugin.versions) { if (!version.version || !Number.isInteger(version.publishTimestamp) || !version.source) throw new Error('invalid version entry') } }"
+          fi

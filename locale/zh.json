@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "会话花费",
+    "description": "显示当前打开的会话花费：在输入框下方的小统计行中，轮次/步骤与 Token 读数旁会显示以你的货币计价的估算金额。点击后可查看明细：输入、缓存读取、缓存写入、输出与推理的估算花费与 Token 数；缓存命中率；轮次、步骤、工具调用与错误、重试、上下文压缩；以及按模型拆分。花费根据提供方上报的 Token 用量和每百万 Token 价格表计算，内置表覆盖当前版本提供的 DeepSeek 模型（deepseek-flash 与 deepseek-v4-pro，采用官方高峰时段价格，非高峰约为半价）。可在配置档 cordis.patch.yml 的 'spend-tracker' 行中用 config.pricing 修改或新增价格，或用 config.defaultPricing 为其他提供方定价。所有数字都是按价格表估算，并非实际账单；未配置价格的模型只显示 Token 数。停用该行会移除读数并停止统计。"
+  }
+}

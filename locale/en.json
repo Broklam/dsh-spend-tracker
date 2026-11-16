@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Session spend",
+    "description": "Shows what the chat you have open costs. An estimated amount in your currency appears in the small stats row under the message box, beside the turns/steps and token readings. Click it for a breakdown: estimated spend and tokens for input, cache read, cache write, output, and reasoning; cache-hit share; turns, steps, tool calls and errors, retries, and compactions; and the per-model split. Cost is computed from provider-reported token usage and a per-million-token price table covering the DeepSeek models this build ships (deepseek-flash and deepseek-v4-pro at official peak rates, where off-peak billing is about half). Override or extend rates under config.pricing on the 'spend-tracker' row of your profile cordis.patch.yml, or set config.defaultPricing to price other providers. Figures are estimates from that table, not billed amounts, and a model with no configured price shows its token count instead of a cost. Disabling the row removes the reading and stops the statistics."
+  }
+}

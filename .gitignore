@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# Test output
+coverage/
+*.lcov
+
+# Editor
+.vscode/
+.idea/
+*.swp

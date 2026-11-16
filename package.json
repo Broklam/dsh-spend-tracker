@@ -1,0 +1,67 @@
+{
+  "name": "dsh-spend-tracker",
+  "version": "0.1.0",
+  "description": "Tracks what the open DeepSeek Harness chat has cost: an estimated spend reading under the message box with token, cache, activity, and per-model breakdowns.",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "projection.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "cordis",
+    "plugin",
+    "spend",
+    "cost",
+    "usage",
+    "tokens",
+    "statistics"
+  ],
+  "engines": {
+    "dsh": ">=0.2.2-rc.1"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "author": {
+    "name": "Broklam",
+    "url": "https://github.com/Broklam"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Broklam/dsh-spend-tracker.git"
+  },
+  "homepage": "https://github.com/Broklam/dsh-spend-tracker#readme",
+  "bugs": {
+    "url": "https://github.com/Broklam/dsh-spend-tracker/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
