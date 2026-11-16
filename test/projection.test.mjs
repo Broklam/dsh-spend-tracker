@@ -278,3 +278,19 @@ test('the model row cap reports how many routes were kept', () => {
 test('the unit declares state version 2 so stale checkpoints refold', () => {
   assert.equal(createProjectionDefinition(config).stateVersion, 2)
 })
+
+test('a non-object pricing entry is ignored instead of reusing other rates', () => {
+  const config = normalizeConfig({ pricing: { 'deepseek-flash': 5 } })
+  assert.equal(config.warnings.length, 1)
+  assert.equal(config.shippedRates, true)
+  assert.equal(config.pricing['deepseek-flash'].output, BUILTIN_RATES['deepseek-flash'].output)
+})
+
+test('a partial custom route inherits defaultPricing when one is configured', () => {
+  const config = normalizeConfig({
+    pricing: { 'openai/gpt-5': { input: 1.25 } },
+    defaultPricing: { input: 1, cacheRead: 0.1, cacheWrite: 1, output: 4 },
+  })
+  assert.deepEqual(config.warnings, [])
+  assert.deepEqual(config.pricing['openai/gpt-5'], { input: 1.25, cacheRead: 0.1, cacheWrite: 1, output: 4 })
+})

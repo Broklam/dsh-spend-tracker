@@ -51,11 +51,15 @@ The hub crawls public repositories and generates a listing. Requirements, all al
 Two actions complete the submission:
 
 1. Keep the npm publish from step 1 current. Without an npm package the site still lists the repository, but the in-app Plugin Hub only shows one-command installs.
-2. Open a submission issue in [dshplugin/dsh-plugin-hub](https://github.com/dshplugin/dsh-plugin-hub/issues/new) to have the listing reviewed, using the template from [dsh-plugin.org/submit](https://dsh-plugin.org/submit). Use this exact format:
+2. Open a submission issue in [dshplugin/dsh-plugin-hub](https://github.com/dshplugin/dsh-plugin-hub/issues/new) to have the listing reviewed, using the template from [dsh-plugin.org/submit](https://dsh-plugin.org/submit). Use this issue title:
+
+```text
+[Plugin submission] Broklam/dsh-spend-tracker — see what the open chat has spent, broken down by tokens, cache, activity, and model
+```
+
+and this issue body:
 
 ```markdown
-Title: [Plugin submission] Broklam/dsh-spend-tracker — see what the open chat has spent, broken down by tokens, cache, activity, and model
-
 ### Repository
 https://github.com/Broklam/dsh-spend-tracker
 
@@ -108,7 +112,7 @@ An index pins an exact version and source. After each release, add a version ent
 
 ```json
 {
-  "version": "0.1.1",
+  "version": "0.1.3",
   "publishTimestamp": 1794834000,
   "source": { "type": "npm" },
   "engines": { "dsh": ">=0.2.2-rc.1 <0.3.0" }
@@ -119,7 +123,7 @@ A Git source stays useful before an npm release or for a pinned commit. The comm
 
 ```json
 {
-  "version": "0.1.1",
+  "version": "0.1.3",
   "publishTimestamp": 1794834000,
   "source": {
     "type": "git",
@@ -130,7 +134,7 @@ A Git source stays useful before an npm release or for a pinned commit. The comm
 }
 ```
 
-The index format is documented in the DSH user guide, section **Plugin indexes**. Check every edit against the format rules: DSH rejects the whole index when one field is invalid and shows the offending JSON path under the source in **Manage index sources…**. The CI workflow validates the file's structure, the icon path, commit shape, and version entries before a push reaches Pages.
+The index format is documented in the DSH user guide, section **Plugin indexes**. DSH rejects the whole index when one field is invalid and shows the offending JSON path under the source in **Manage index sources…**. Both workflows run `node scripts/validate-index.mjs` before anything is published: it checks names, versions, timestamps, source shapes, the `engines` range, duplicates, and the icon file, and you can run it locally before committing. DSH re-validates the complete format when a user adds the index.
 
 ## 4. Direct install without a marketplace
 

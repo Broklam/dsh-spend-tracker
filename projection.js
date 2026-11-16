@@ -187,6 +187,10 @@ export function normalizeConfig(raw) {
           warnings.push('pricing keys must be a model id or a provider/model route')
           continue
         }
+        if (!isRecord(rates)) {
+          warnings.push(`pricing["${route}"] must be an object of rates; ignoring it`)
+          continue
+        }
         const model = route.includes('/') ? route.slice(route.indexOf('/') + 1) : route
         const shipped = Object.hasOwn(BUILTIN_RATES, model) ? BUILTIN_RATES[model] : null
         const complete = completeRates(rates, shipped ?? fallback)

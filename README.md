@@ -55,7 +55,15 @@ Requirements: DeepSeek Harness 0.2.2-rc.1 up to, but not including, 0.3.0, with 
 2. Choose **Add plugin** and select this package's directory.
 3. Turn the **Session spend** row on.
 
-The Desktop app runs the `desktop` profile. If you install from a terminal instead, name that profile: `dsh plugin --profile desktop add <source>`.
+The Desktop app runs the `desktop` profile. To install from a terminal instead, name that profile:
+
+```sh
+dsh plugin --profile desktop add dsh-spend-tracker                                  # npm, once published
+dsh plugin --profile desktop add github:Broklam/dsh-spend-tracker                   # this repository
+dsh plugin --profile desktop add ./dsh-spend-tracker                                # a local clone
+```
+
+Once the package is published to npm, **Settings → Plugin Hub** also installs it without a terminal.
 
 ### Web profile (CLI)
 
@@ -110,7 +118,7 @@ Override or extend the table in your profile's `cordis.patch.yml`:
       output: 4
 ```
 
-Keys match as `provider/model` first, then as a bare model id, so one `deepseek-flash` entry covers every provider that serves it. An entry for a shipped model inherits the rest of that model's shipped rates; an entry for any other route must supply all four. A malformed entry is ignored with a warning in the host log, and its route stays unpriced, so a typo never bills at borrowed rates.
+Keys match as `provider/model` first, then as a bare model id, so one `deepseek-flash` entry covers every provider that serves it. An entry for a shipped model inherits the rest of that model's shipped rates. Another route inherits from `defaultPricing` when it is set, and must supply all four rates otherwise. A malformed entry is ignored with a warning in the host log, and its route stays unpriced, so a typo never bills at borrowed rates.
 
 Prices are read when a session is rendered, so editing the table also reprices past sessions. The panel stops printing the peak-rate caveat as soon as you reprice a shipped model, because the table is then yours.
 

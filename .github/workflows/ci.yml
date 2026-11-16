@@ -38,30 +38,4 @@ jobs:
             echo "No index in this commit; skipping."
             exit 0
           fi
-          node - <<'NODE'
-          const { existsSync, readFileSync } = require('node:fs')
-          const { join } = require('node:path')
-          const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/
-          const index = JSON.parse(readFileSync('marketplace/index.json', 'utf8'))
-          if (index.format !== 1) throw new Error('format must be 1')
-          if (!Array.isArray(index.plugins) || index.plugins.length === 0) throw new Error('plugins must be a non-empty array')
-          for (const plugin of index.plugins) {
-            if (typeof plugin.name !== 'string' || plugin.name === '') throw new Error('a plugin needs a name')
-            if (!Array.isArray(plugin.versions) || plugin.versions.length === 0) throw new Error(plugin.name + ' needs versions')
-            for (const version of plugin.versions) {
-              if (!SEMVER.test(version.version)) throw new Error(plugin.name + ' has an invalid version: ' + version.version)
-              if (!Number.isInteger(version.publishTimestamp)) throw new Error(plugin.name + ' has a non-integer publishTimestamp')
-              if (version.engines?.dsh !== undefined && typeof version.engines.dsh !== 'string') throw new Error(plugin.name + ' has a non-string engines.dsh')
-              if (version.source?.type === 'git') {
-                if (!/^[0-9a-f]{40}$/.test(version.source.commit ?? '')) throw new Error(plugin.name + ' git source needs a 40-hex commit')
-                if (!/^https:\/\//.test(version.source.url ?? '')) throw new Error(plugin.name + ' git source needs an https URL')
-              } else if (version.source?.type !== 'npm') {
-                throw new Error(plugin.name + ' has an invalid source type')
-              }
-            }
-            if (typeof plugin.icon === 'string' && !plugin.icon.startsWith('data:')) {
-              if (!existsSync(join('marketplace', plugin.icon))) throw new Error(plugin.name + ' icon file is missing: ' + plugin.icon)
-            }
-          }
-          console.log('Plugin index is valid.')
-          NODE
+          node scripts/validate-index.mjs

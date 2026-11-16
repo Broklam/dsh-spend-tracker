@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] — 2026-11-16
+
+### Fixed
+
+- A rate entry that is not an object is ignored with a warning instead of silently reusing another model's rates.
+
+### Changed
+
+- `scripts/validate-index.mjs` is the one index check, and both the CI and Pages workflows run it before publishing. It covers names, versions, timestamps, source shapes, engine ranges, duplicates, and the icon file.
+- Documentation: `defaultPricing` inheritance is stated, Desktop install commands name the `desktop` profile explicitly, and the hub submission template separates the issue title from its body.
+
 ## [0.1.2] — 2026-11-16
 
 ### Fixed
@@ -37,6 +48,7 @@ Initial release.
 - Format-1 DSH plugin index and GitHub Pages workflow for the Discover tab.
 - Unit tests for the fold, state validation, and wire contract.
 
+[0.1.3]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.1.3
 [0.1.2]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.1.2
 [0.1.1]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.1.1
 [0.1.0]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.1.0
