@@ -16,7 +16,7 @@ window.__ModuleLoader__.load({
       'pill.spendTitle': 'Session spend (estimated): {cost}',
       'pill.tokensTitle': 'Session tokens: {tokens}; no price is configured for the models it used',
       'pill.tokens': '{tokens} tokens',
-      'dialog.title': 'Session spend',
+      'dialog.title': 'Session spend (estimated)',
       'status.peak': 'Peak hours · off-peak starts in {remaining}',
       'status.offPeak': 'Off-peak hours · {percent}% off · peak starts in {remaining}',
       'status.peakNoBoundary': 'Peak hours',
@@ -49,6 +49,7 @@ window.__ModuleLoader__.load({
       'value.tokensOnly': '{tokens}',
       'note.unpriced': 'Unpriced model usage — calls: {calls}, tokens: {tokens}. Add that model\'s rates under pricing in cordis.patch.yml.',
       'note.models': 'Showing {shown} of {total} models.',
+      'note.about': 'About this estimate',
       'note.estimate': 'Estimated from DeepSeek\'s prices, not a billed amount.',
       'note.offPeakSaved': 'Off-peak rates lowered this estimate by about {amount}.',
       'note.rates': 'Rate table refreshed from the pricing page {when}.',
@@ -64,7 +65,7 @@ window.__ModuleLoader__.load({
       'pill.spendTitle': '本次会话花费（估算）：{cost}',
       'pill.tokensTitle': '本次会话 {tokens} tokens；所用模型未配置价格',
       'pill.tokens': '{tokens} tokens',
-      'dialog.title': '会话花费',
+      'dialog.title': '会话花费（估算）',
       'status.peak': '高峰时段 · {remaining}后转非高峰',
       'status.offPeak': '非高峰时段 · 优惠 {percent}% · {remaining}后转高峰',
       'status.peakNoBoundary': '高峰时段',
@@ -97,6 +98,7 @@ window.__ModuleLoader__.load({
       'value.tokensOnly': '{tokens}',
       'note.unpriced': '未定价的模型用量 — 调用：{calls} 次，Token：{tokens} 个。可在 cordis.patch.yml 的 pricing 中为该模型补充价格。',
       'note.models': '仅显示 {total} 个模型中的前 {shown} 个。',
+      'note.about': '关于此估算',
       'note.estimate': '按 DeepSeek 价格估算，并非实际账单金额。',
       'note.offPeakSaved': '非高峰费率使本次估算减少约 {amount}。',
       'note.rates': '价格表已从定价页更新：{when}。',
@@ -269,6 +271,52 @@ window.__ModuleLoader__.load({
       .dsh-spend-note {
         margin-top: 10px;
         color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-secondary, CanvasText));
+      }
+      .dsh-spend-about {
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 0.5px solid var(--dsw-alias-border-l2);
+      }
+      .dsh-spend-about > summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        list-style: none;
+        color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-secondary, CanvasText));
+        cursor: pointer;
+        user-select: none;
+      }
+      .dsh-spend-about > summary::-webkit-details-marker {
+        display: none;
+      }
+      .dsh-spend-about > summary::marker {
+        content: '';
+      }
+      @media (hover: hover) {
+        .dsh-spend-about > summary:hover {
+          color: var(--dsw-alias-label-secondary, CanvasText);
+        }
+      }
+      .dsh-spend-about > summary:focus-visible {
+        border-radius: var(--dsw-radius-sm, 4px);
+        outline: 1px solid var(--dsw-alias-label-tertiary, CanvasText);
+        outline-offset: 2px;
+      }
+      .dsh-spend-about > summary svg {
+        width: 10px;
+        height: 10px;
+        flex: none;
+        transition: transform 120ms ease;
+      }
+      .dsh-spend-about[open] > summary svg {
+        transform: rotate(90deg);
+      }
+      .dsh-spend-about-body .dsh-spend-note {
+        margin-top: 6px;
+      }
+      .dsh-spend-about-body .dsh-spend-note:first-child {
+        margin-top: 8px;
       }
     `
 
@@ -500,6 +548,21 @@ window.__ModuleLoader__.load({
       )
     }
 
+    /** Disclosure chevron: points right when closed, down when open. */
+    function ChevronGlyph() {
+      return h('svg', {
+        viewBox: '0 0 12 12',
+        fill: 'none',
+        stroke: 'currentColor',
+        strokeWidth: 1.5,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
+        'aria-hidden': true,
+      },
+        h('path', { d: 'M4.5 2.5 8 6l-3.5 3.5' }),
+      )
+    }
+
     /** One labelled section of dialog rows. */
     function Section({ title, children }) {
       return h('div', { className: 'dsh-spend-section' },
@@ -700,26 +763,39 @@ window.__ModuleLoader__.load({
           total: spend.modelsTotal,
         })))
       }
+
+      // The estimate's provenance, saving, and freshness stay collapsed behind
+      // one disclosure so they do not crowd the figures on every open.
+      const aboutNotes = []
       if (priced) {
-        notes.push(h('div', { className: 'dsh-spend-note', key: 'estimate' }, t('note.estimate')))
+        aboutNotes.push(h('div', { className: 'dsh-spend-note', key: 'estimate' }, t('note.estimate')))
       }
       if (priced && spend.saved > 0 && spend.schedule?.enabled) {
         const savedText = formatCost(spend.saved, spend.currencySymbol, spend.decimals)
         if (!savedText.startsWith('<')) {
-          notes.push(h('div', { className: 'dsh-spend-note', key: 'offPeakSaved' }, t('note.offPeakSaved', { amount: savedText })))
+          aboutNotes.push(h('div', { className: 'dsh-spend-note', key: 'offPeakSaved' }, t('note.offPeakSaved', { amount: savedText })))
         }
       }
       if (priced) {
         const rates = spend.rates ?? null
         if (rates !== null && rates.source === 'deepseek' && rates.updatedAt !== null) {
-          notes.push(h('div', { className: 'dsh-spend-note', key: 'rates' }, t('note.rates', { when: formatAge(rates.updatedAt, now, t) })))
+          aboutNotes.push(h('div', { className: 'dsh-spend-note', key: 'rates' }, t('note.rates', { when: formatAge(rates.updatedAt, now, t) })))
         } else {
-          notes.push(h('div', { className: 'dsh-spend-note', key: 'ratesBundled' }, t('note.ratesBundled')))
+          aboutNotes.push(h('div', { className: 'dsh-spend-note', key: 'ratesBundled' }, t('note.ratesBundled')))
         }
       }
+      const about = aboutNotes.length === 0
+        ? null
+        : h('details', { className: 'dsh-spend-about', key: 'about' },
+          h('summary', { className: 'dsh-spend-about-summary' },
+            h('span', null, t('note.about')),
+            h(ChevronGlyph),
+          ),
+          h('div', { className: 'dsh-spend-about-body' }, aboutNotes),
+        )
 
-      // The tilde marks an estimate on the resting reading; the dialog explains
-      // the same figure in its note, so its rows and title stay plain.
+      // The tilde marks the resting reading as an estimate; the dialog repeats
+      // the word in its title and keeps the caveats in the disclosure below.
       const estimateCost = cost.startsWith('<') ? cost : `${ESTIMATE_PREFIX}${cost}`
       const headline = priced ? estimateCost : t('pill.tokens', { tokens: formatCompactTokens(spend.tokens.total) })
       const dialogValue = priced ? cost : t('pill.tokens', { tokens: formatCompactTokens(spend.tokens.total) })
@@ -777,6 +853,7 @@ window.__ModuleLoader__.load({
               h(Section, { title: t('section.activity') }, rows(activityPairs)),
               modelRows === null ? null : h(Section, { title: t('section.models') }, modelRows),
               notes,
+              about,
             ),
           ),
           document.body,

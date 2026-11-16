@@ -50,3 +50,8 @@ test('every key the components translate is defined in both dictionaries', () =>
     assert.ok(ZH.has(key), `ZH is missing ${key}`)
   }
 })
+
+test('the panel title names the figure as an estimate', () => {
+  assert.match(EN.get('dialog.title'), /estimated/i)
+  assert.match(ZH.get('dialog.title'), /估算/)
+})

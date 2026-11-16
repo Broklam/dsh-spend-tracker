@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- The estimate's provenance, the off-peak saving, and the price-table freshness now sit behind a collapsed **About this estimate** row, so the panel opens on the figures and the notes stay out of the way until opened.
+- The panel title names the figure as an estimate: **Session spend (estimated)**.
+
 ## [0.2.2] — 2026-11-16
 
 ### Fixed

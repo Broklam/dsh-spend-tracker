@@ -22,14 +22,14 @@ Clicking the reading opens a panel with:
 | Activity | Turns, steps, tool calls, tool errors, retries, compactions |
 | By model | Spend and tokens per model, when more than one was billed |
 
-Notes say what is unpriced, when the model list was truncated, that the figure is an estimate, how much off-peak rates saved, and whether the prices came from the pricing page or the bundled table.
+Warnings stay visible at the bottom of the panel: unpriced usage, or a truncated model list. Everything else — that the figure is an estimate rather than a bill, how much off-peak rates saved, and how fresh the price table is — sits behind a collapsed **About this estimate** row, so it stays out of the way until you open it.
 
 A row appears when it has data; turns, steps, and tool calls are always shown. Escape, a click outside, or activating another stats control closes the panel. The panel is measured once when it opens and stays put while values update, so a busy session cannot move it; long content scrolls inside it, with the title and rate status kept above the scroll area.
 
 Example output from one session:
 
 ```text
-Session spend                                      $0.523
+Session spend (estimated)                          $0.523
 ● Off-peak hours · 50% off · peak starts in 14h 12m
 ─────────────────────────────────────────────────────────
 Estimated spend
@@ -46,9 +46,7 @@ Tool calls                                            426
 Retries                                                 9
 Compactions                                             1
 
-Estimated from DeepSeek's prices, not a billed amount.
-Off-peak rates lowered this estimate by about $0.511.
-Prices refreshed from the pricing page just now.
+About this estimate                                     ▸
 ```
 
 ## Install
