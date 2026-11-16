@@ -27,6 +27,18 @@
       },
       "versions": [
         {
+          "version": "0.2.2",
+          "publishTimestamp": 1794835756,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/Broklam/dsh-spend-tracker",
+            "commit": "3d46cbb7ae7285ef66b5f72f9c2a5ab93a268ea5"
+          },
+          "engines": {
+            "dsh": ">=0.2.2-rc.1 <0.3.0"
+          }
+        },
+        {
           "version": "0.2.1",
           "publishTimestamp": 1794835226,
           "source": {
