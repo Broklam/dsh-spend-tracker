@@ -274,3 +274,7 @@ test('the model row cap reports how many routes were kept', () => {
   assert.equal(view.models.length, 8)
   assert.doesNotThrow(() => createProjectionDefinition(normalizeConfig(undefined)).wire.viewSchema.parse(view))
 })
+
+test('the unit declares state version 2 so stale checkpoints refold', () => {
+  assert.equal(createProjectionDefinition(config).stateVersion, 2)
+})

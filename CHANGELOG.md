@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] — 2026-11-16
+
+### Fixed
+
+- The projection state version is now 2, so a checkpoint written under the 0.1.1 retry rule is discarded and refolded from the session log. Without it, sessions that had streamed before a retry kept the earlier, lower totals after upgrading.
+
 ## [0.1.1] — 2026-11-16
 
 Documentation and correctness follow-up to the first release.
@@ -31,5 +37,6 @@ Initial release.
 - Format-1 DSH plugin index and GitHub Pages workflow for the Discover tab.
 - Unit tests for the fold, state validation, and wire contract.
 
+[0.1.2]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.1.2
 [0.1.1]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.1.1
 [0.1.0]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.1.0

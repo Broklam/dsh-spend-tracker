@@ -354,7 +354,8 @@ export function createProjectionDefinition(config) {
 
   return {
     key: 'sessionSpend',
-    stateVersion: 1,
+    // Version 2 changed retry billing: version-1 rows must refold from the log.
+    stateVersion: 2,
     stateSchema,
     init: initialState,
     apply: (state, event) => {

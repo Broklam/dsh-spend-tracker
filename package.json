@@ -1,6 +1,6 @@
 {
   "name": "dsh-spend-tracker",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Tracks what the open DeepSeek Harness chat has cost: an estimated spend reading under the message box with token, cache, activity, and per-model breakdowns.",
   "type": "module",
   "main": "index.js",
