@@ -159,10 +159,10 @@ The tests cover retry replacement, per-model attribution, unpriced models, compa
 
 ## Marketplaces
 
-- **DSH Discover tab**: any static JSON index can list this plugin. A ready index lives in [`marketplace/index.json`](marketplace/index.json); see [docs/PUBLISHING.md](docs/PUBLISHING.md) for the hosted URL and how to add it in **Plugins → Discover → Add index source**.
-- **DSH Plugin Hub** ([dsh-plugin.org](https://dsh-plugin.org)): the community directory lists public repositories tagged `dsh-plugin`, and lists npm-published plugins in the in-app Plugin Hub.
+- **DSH Discover tab**: this repository publishes a format-1 plugin index at `https://broklam.github.io/dsh-spend-tracker/index.json`. Enable **Custom plugin indexes**, open **Plugins → Discover → Add index source**, and paste that URL. The index lives in [`marketplace/index.json`](marketplace/index.json) and pins an exact release.
+- **DSH Plugin Hub** ([dsh-plugin.org](https://dsh-plugin.org)): the community directory indexes public repositories tagged `dsh-plugin`, and lists npm-published plugins in the in-app Plugin Hub for one-click install.
 
-[docs/PUBLISHING.md](docs/PUBLISHING.md) covers both submission paths step by step.
+[docs/PUBLISHING.md](docs/PUBLISHING.md) covers both submission paths step by step, including the npm release that puts the plugin in the in-app Plugin Hub.
 
 ## License
 

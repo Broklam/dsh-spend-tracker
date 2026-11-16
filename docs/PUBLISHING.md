@@ -47,10 +47,7 @@ The hub crawls public repositories and generates a listing. Requirements, all al
 Two actions complete the submission:
 
 1. Keep the npm publish from step 1 current. Without an npm package the site still lists the repository, but the in-app Plugin Hub only shows one-command installs.
-2. Optionally open the prefilled submission issue so a reviewer verifies the listing faster:
-   `https://github.com/dshplugin/dsh-plugin-hub/issues/new?title=%5BPlugin%20submission%5D%20Broklam%2Fdsh-spend-tracker&body=...`
-
-The issue body template is on [dsh-plugin.org/submit](https://dsh-plugin.org/submit). Use this content:
+2. Optionally open an issue in [dshplugin/dsh-plugin-hub](https://github.com/dshplugin/dsh-plugin-hub/issues/new) so a reviewer confirms the listing faster. The submission form is on [dsh-plugin.org/submit](https://dsh-plugin.org/submit). Use this content:
 
 ```markdown
 ### Repository
@@ -83,15 +80,13 @@ After listing, the detail page is `https://dsh-plugin.org/plugins/Broklam/dsh-sp
 
 ## 3. Publish a DSH plugin index
 
-[`marketplace/index.json`](../marketplace/index.json) is a format-1 index with one plugin and one version. Host it anywhere static; this repository includes `.github/workflows/pages.yml`, which publishes the `marketplace/` directory to GitHub Pages on every push that touches it.
+[`marketplace/index.json`](../marketplace/index.json) is a format-1 index with one plugin and one version. `.github/workflows/pages.yml` publishes the `marketplace/` directory to GitHub Pages on every push that touches it, so the index is live at:
 
-Prepare it once:
+```text
+https://broklam.github.io/dsh-spend-tracker/index.json
+```
 
-1. Push this repository.
-2. Enable Pages for the repository with **GitHub Actions** as the source (Settings → Pages → Build and deployment → Source: GitHub Actions), or run `gh api --method POST repos/Broklam/dsh-spend-tracker/pages -f build_type=workflow`.
-3. Let the Pages workflow run. The index URL becomes `https://broklam.github.io/dsh-spend-tracker/index.json`.
-
-Users add that URL in **Plugins → Discover → Add index source** after enabling **Custom plugin indexes**.
+Users add that URL in **Plugins → Discover → Add index source** after enabling **Custom plugin indexes**. A fork needs one setup step first: enable Pages with **GitHub Actions** as the source (Settings → Pages → Build and deployment → Source: GitHub Actions), or run `gh api --method POST repos/<owner>/<repo>/pages -f build_type=workflow`.
 
 An index pins an exact version and source. After each release, update the version entry: `version`, `publishTimestamp` (Unix seconds), and `source`. Prefer npm after step 1, because it is the install path the Plugin Hub also uses:
 
