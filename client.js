@@ -21,6 +21,8 @@ window.__ModuleLoader__.load({
       'status.offPeak': 'Off-peak hours · {percent}% off · peak starts in {remaining}',
       'status.peakNoBoundary': 'Peak hours',
       'status.offPeakNoBoundary': 'Off-peak hours · {percent}% off',
+      'status.offPeakNoPercent': 'Off-peak hours · peak starts in {remaining}',
+      'status.offPeakNoBoundaryNoPercent': 'Off-peak hours',
       'duration.minutes': '{minutes}m',
       'duration.hours': '{hours}h',
       'duration.hoursMinutes': '{hours}h {minutes}m',
@@ -67,6 +69,8 @@ window.__ModuleLoader__.load({
       'status.offPeak': '非高峰时段 · 优惠 {percent}% · {remaining}后转高峰',
       'status.peakNoBoundary': '高峰时段',
       'status.offPeakNoBoundary': '非高峰时段 · 优惠 {percent}%',
+      'status.offPeakNoPercent': '非高峰时段 · {remaining}后转高峰',
+      'status.offPeakNoBoundaryNoPercent': '非高峰时段',
       'duration.minutes': '{minutes}分钟',
       'duration.hours': '{hours}小时',
       'duration.hoursMinutes': '{hours}小时{minutes}分',
@@ -380,17 +384,21 @@ window.__ModuleLoader__.load({
       return null
     }
 
-    /** Tier, discount percentage, and countdown text for one instant. */
+    /** Tier, charged discount percentage, and countdown text for one instant. */
     function describeStatus(schedule, epochMs, t) {
       const tier = tierAt(schedule, epochMs)
       if (tier === null) return null
-      const percentOff = Math.round(schedule.discount * 100)
+      const percentOff = Object.hasOwn(schedule, 'offPeakPercent')
+        ? schedule.offPeakPercent
+        : (schedule.enabled ? Math.round(schedule.discount * 100) : null)
       const remaining = msUntilTierChange(schedule, epochMs)
       const text = tier === 'peak'
         ? (remaining === null ? t('status.peakNoBoundary') : t('status.peak', { remaining: formatRemaining(remaining, t) }))
-        : (remaining === null
-          ? t('status.offPeakNoBoundary', { percent: percentOff })
-          : t('status.offPeak', { percent: percentOff, remaining: formatRemaining(remaining, t) }))
+        : percentOff === null
+          ? (remaining === null ? t('status.offPeakNoBoundaryNoPercent') : t('status.offPeakNoPercent', { remaining: formatRemaining(remaining, t) }))
+          : (remaining === null
+            ? t('status.offPeakNoBoundary', { percent: percentOff })
+            : t('status.offPeak', { percent: percentOff, remaining: formatRemaining(remaining, t) }))
       return { tier, text, percentOff, remaining }
     }
 
@@ -426,8 +434,13 @@ window.__ModuleLoader__.load({
     /** Host-defined top overlay inset, so the pinned panel stays below window chrome. */
     function overlayTopInset() {
       try {
-        const raw = window.getComputedStyle(document.documentElement).getPropertyValue('--dsh-frame-overlay-top')
-        const value = Number.parseFloat(raw)
+        // The host value is often a calc() expression, which computed-style
+        // serialization does not resolve, so measure a probe box instead.
+        const probe = document.createElement('div')
+        probe.style.cssText = 'position:fixed;left:0;top:0;width:0;visibility:hidden;pointer-events:none;height:var(--dsh-frame-overlay-top, 0px);'
+        document.body.appendChild(probe)
+        const value = probe.getBoundingClientRect().height
+        probe.remove()
         return Number.isFinite(value) && value > PANEL_INSET ? value : PANEL_INSET
       } catch {
         return PANEL_INSET
@@ -516,6 +529,7 @@ window.__ModuleLoader__.load({
       const [now, setNow] = React.useState(() => Date.now())
       const pillRef = React.useRef(null)
       const panelRef = React.useRef(null)
+      const focusRef = React.useRef(null)
 
       React.useEffect(() => {
         if (!open) return undefined
@@ -553,20 +567,22 @@ window.__ModuleLoader__.load({
         return () => { clearInterval(timer) }
       }, [open])
 
-      // Move focus into the dialog while it is open, and give it back to the
-      // pill afterwards, so keyboard users are not left behind the portal.
+      // Move focus in once the panel is visible (it is initially hidden until
+      // measured), and hand it back on close so keyboard users are not stranded.
+      React.useLayoutEffect(() => {
+        if (!open || geometry === null || focusRef.current !== null) return
+        focusRef.current = document.activeElement
+        panelRef.current?.focus?.()
+      }, [open, geometry])
+
       React.useEffect(() => {
-        if (!open) return undefined
-        const panel = panelRef.current
-        const previous = document.activeElement
-        panel?.focus?.()
-        return () => {
-          // Only take focus back if the closing panel still owns it; a click
-          // that opened another control must not be undone here.
-          const active = document.activeElement
-          const panelOwned = active === null || active === panel || active === document.body
-          if (panelOwned && previous !== null && typeof previous.focus === 'function') previous.focus()
-        }
+        if (open) return undefined
+        const previous = focusRef.current
+        focusRef.current = null
+        const active = document.activeElement
+        const panelOwned = active === null || active === document.body
+        if (panelOwned && previous !== null && typeof previous.focus === 'function') previous.focus()
+        return undefined
       }, [open])
 
       // Measure once per opening and pin the box. Content updates after this
@@ -780,6 +796,7 @@ window.__ModuleLoader__.load({
         formatAge,
         formatCost,
         computePanelPlacement,
+        overlayTopInset,
         dictionaries: { EN, ZH },
       },
       apply(ctx) {

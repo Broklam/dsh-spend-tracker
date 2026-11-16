@@ -64,6 +64,14 @@ test('the status line names the tier, the discount, and the next change', () => 
   const custom = math.describeStatus({ ...DEFAULT_SCHEDULE, discount: 0.25 }, OFF_PEAK, translate)
   assert.equal(custom.percentOff, 25)
   assert.match(custom.text, /25% off/)
+  // The Host's billed percentage wins over the prose discount.
+  const billed = math.describeStatus({ ...DEFAULT_SCHEDULE, offPeakPercent: 25 }, OFF_PEAK, translate)
+  assert.equal(billed.percentOff, 25)
+  assert.match(billed.text, /25% off/)
+  // No single percentage (per-model off-peak rows) drops the segment.
+  const mixed = math.describeStatus({ ...DEFAULT_SCHEDULE, offPeakPercent: null }, OFF_PEAK, translate)
+  assert.equal(mixed.percentOff, null)
+  assert.match(mixed.text, /Off-peak hours · peak starts in/)
   assert.equal(math.describeStatus({ ...DEFAULT_SCHEDULE, enabled: false }, PEAK, translate), null)
 })
 
@@ -109,6 +117,38 @@ test('the panel stays below host window chrome', () => {
   const placement = math.computePanelPlacement({ top: 300, bottom: 328, left: 40, width: 100 }, { width: 340, height: 420 }, { width: 1280, height: 800 }, 60)
   assert.ok(placement.top >= 60)
   assert.ok(placement.top + placement.height <= 800 - 12)
+})
+
+test('the chrome inset resolves a calc() host value', () => {
+  const previous = globalThis.document
+  globalThis.document = {
+    createElement: () => ({ style: {}, getBoundingClientRect: () => ({ height: 68 }), remove() {} }),
+    body: { appendChild() {} },
+  }
+  try {
+    assert.equal(math.overlayTopInset(), 68)
+  } finally {
+    globalThis.document = previous
+  }
+})
+
+test('the chrome inset falls back when the probe has no height', () => {
+  const previous = globalThis.document
+  globalThis.document = {
+    createElement: () => ({ style: {}, getBoundingClientRect: () => ({ height: 0 }), remove() {} }),
+    body: { appendChild() {} },
+  }
+  try {
+    assert.equal(math.overlayTopInset(), 12)
+  } finally {
+    globalThis.document = previous
+  }
+})
+
+test('an above-placed panel respects host headroom', () => {
+  const placement = math.computePanelPlacement({ top: 500, bottom: 528, left: 40, width: 100 }, { width: 340, height: 420 }, { width: 1280, height: 800 }, 200)
+  assert.equal(placement.top, 200)
+  assert.equal(placement.height, 292)
 })
 
 test('rate-table age is relative to the reader', () => {

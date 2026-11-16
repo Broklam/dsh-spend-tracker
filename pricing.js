@@ -284,9 +284,11 @@ function readDays(text) {
  * so the caller keeps the shipped schedule instead of guessing.
  */
 function readSchedule(markdown) {
-  const sentenceMatch = /Peak hours\s+are\s+([^.]+)\./i.exec(markdown)
-  if (sentenceMatch === null) return { windows: null, discount: null, warning: 'pricing page no longer states its peak hours; keeping the shipped schedule' }
-  const sentence = sentenceMatch[1]
+  // Prefer the candidate that carries the UTC marker: "Off-peak hours are"
+  // contains the same phrase and must not win just because it comes first.
+  const candidates = [...markdown.matchAll(/Peak hours\s+are\s+([^.]+)\./gi)].map(match => match[1])
+  const sentence = candidates.find(text => /\bUTC\b/i.test(text)) ?? candidates[0]
+  if (sentence === undefined) return { windows: null, discount: null, warning: 'pricing page no longer states its peak hours; keeping the shipped schedule' }
   const utcIndex = sentence.toUpperCase().indexOf(' UTC')
   if (utcIndex === -1) return { windows: null, discount: null, warning: 'peak-hours sentence has no UTC marker; keeping the shipped schedule' }
   const rangePart = sentence.slice(0, utcIndex)
@@ -303,23 +305,24 @@ function readSchedule(markdown) {
   const discountSentence = /off-peak rates?[^.]*\./i.exec(markdown)?.[0] ?? sentence
   const readDiscount = () => {
     if (/half/i.test(discountSentence)) return { discount: 0.5, warning: null }
-    const percentOff = /off-peak rates?\s+(?:are|is)\s+(\d{1,3})\s*%\s*off/i.exec(discountSentence)
+    // Decide from the words after the number, never from "Off" in "Off-peak".
+    const percentOff = /(\d{1,3})\s*%\s*off\b/i.exec(discountSentence)
     if (percentOff !== null) {
       const value = Number(percentOff[1]) / 100
       return value > 0 && value < 1
         ? { discount: value, warning: null }
         : { discount: null, warning: 'off-peak discount is outside 0-100%; keeping the shipped 50%' }
     }
-    const percentOfPeak = /(\d{1,3})\s*%\s*of the (?:peak|regular|standard)/i.exec(discountSentence)
-    if (percentOfPeak !== null) {
-      const value = 1 - Number(percentOfPeak[1]) / 100
+    const percentOf = /(\d{1,3})\s*%\s*of\b/i.exec(discountSentence)
+    if (percentOf !== null) {
+      const value = 1 - Number(percentOf[1]) / 100
       return value > 0 && value < 1
         ? { discount: value, warning: null }
         : { discount: null, warning: 'off-peak price share is outside 0-100%; keeping the shipped 50%' }
     }
     const bare = /(\d{1,3})\s*%/.exec(discountSentence)
     if (bare !== null) {
-      const value = /\boff\b/i.test(discountSentence) ? Number(bare[1]) / 100 : 1 - Number(bare[1]) / 100
+      const value = Number(bare[1]) / 100
       return value > 0 && value < 1
         ? { discount: value, warning: `off-peak discount wording is ambiguous; read it as ${value * 100}% off` }
         : { discount: null, warning: 'off-peak discount wording is unreadable; keeping the shipped 50%' }

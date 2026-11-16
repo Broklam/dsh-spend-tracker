@@ -173,3 +173,29 @@ test('an unreadable peak-hours sentence is reported but still installs the price
   assert.ok(ctx.captured.warnings.some(message => message.includes('peak-hours')), 'the schedule warning must be logged')
   for (const dispose of ctx.captured.disposers) dispose()
 })
+
+test('a provider fetch failure is reported, not retried with the direct client', async () => {
+  const web = {
+    fetch: async () => {
+      const error = new Error('provider transport failed')
+      error.code = 'WEB_PROVIDER_ERROR'
+      throw error
+    },
+  }
+  const originalFetch = globalThis.fetch
+  let directCalls = 0
+  globalThis.fetch = async () => {
+    directCalls += 1
+    return new Response(pricingMarkdown(), { status: 200 })
+  }
+  try {
+    const ctx = fakeContext(web)
+    await apply(ctx, {})
+    await settle()
+    assert.equal(directCalls, 0, 'only selection failures may fall back')
+    assert.ok(ctx.captured.warnings.some(message => message.includes('provider transport failed')))
+    for (const dispose of ctx.captured.disposers) dispose()
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})

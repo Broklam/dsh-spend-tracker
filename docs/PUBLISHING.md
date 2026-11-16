@@ -112,7 +112,7 @@ An index pins an exact version and source. After each release, add a version ent
 
 ```json
 {
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publishTimestamp": 1794834000,
   "source": { "type": "npm" },
   "engines": { "dsh": ">=0.2.2-rc.1 <0.3.0" }
@@ -123,7 +123,7 @@ A Git source stays useful before an npm release or for a pinned commit. The comm
 
 ```json
 {
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publishTimestamp": 1794834000,
   "source": {
     "type": "git",

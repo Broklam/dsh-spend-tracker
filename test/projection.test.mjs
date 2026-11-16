@@ -480,6 +480,27 @@ test('a partial custom route inherits defaultPricing when one is configured', ()
   assert.equal(view.cost, 1.25 + 4)
 })
 
+test('the wire reports the discount actually charged', () => {
+  const plain = wire([])
+  assert.equal(plain.view.schedule.offPeakPercent, 50)
+  const resolved = normalizeConfig(undefined)
+  applyRemotePricing(resolved, {
+    models: {
+      'deepseek-flash': {
+        peak: { input: 1, cacheRead: 0.01, output: 2 },
+        offPeak: { input: 0.25, cacheRead: 0.0025, output: 0.5 },
+      },
+    },
+    schedule: null,
+  }, { url: 'https://example.test/pricing.md', updatedAt: 3 })
+  const off = wire([
+    assistant(1, 1, { inputTokens: 1_000_000, outputTokens: 0 }, 'deepseek-account', 'deepseek-flash', OFF_PEAK),
+  ], resolved)
+  assert.equal(off.view.schedule.offPeakPercent, 75, 'an off-peak price at 25% of peak is 75% off')
+  assert.equal(off.view.costOffPeak, 0.25)
+  assert.equal(off.view.saved, 0.75)
+})
+
 test('a refreshed off-peak price that differs from the prose discount is used as printed', () => {
   const resolved = normalizeConfig(undefined)
   applyRemotePricing(resolved, {

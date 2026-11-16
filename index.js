@@ -85,9 +85,38 @@ async function fetchPricingDocument(ctx, url, signal) {
     },
   })
   if (!response.ok) throw new Error(`DeepSeek pricing page answered HTTP ${response.statusCode}`)
-  const text = await response.text()
-  if (text.length > MAX_PRICING_CHARS) throw new Error('DeepSeek pricing page is too large to parse safely')
-  return text
+  return readBoundedText(response)
+}
+
+/**
+ * Read a response body up to the pricing-document cap without buffering an
+ * unbounded body first.
+ * @param response - fetch response.
+ * @returns the decoded text.
+ */
+async function readBoundedText(response) {
+  const declared = Number(response.headers?.get?.('content-length'))
+  if (Number.isFinite(declared) && declared > MAX_PRICING_CHARS) {
+    throw new Error('DeepSeek pricing page is too large to parse safely')
+  }
+  if (response.body === null || typeof response.body?.getReader !== 'function') {
+    const text = await response.text()
+    if (text.length > MAX_PRICING_CHARS) throw new Error('DeepSeek pricing page is too large to parse safely')
+    return text
+  }
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let text = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    text += decoder.decode(value, { stream: true })
+    if (text.length > MAX_PRICING_CHARS) {
+      await reader.cancel()
+      throw new Error('DeepSeek pricing page is too large to parse safely')
+    }
+  }
+  return text + decoder.decode()
 }
 
 /**
@@ -113,14 +142,6 @@ function startPriceRefresh(ctx, resolved) {
     reported.add(message)
     warn(ctx, message)
   }
-  if (!resolved.scheduleConfigured) {
-    const latestHolidayYear = Math.max(...CN_HOLIDAYS.map(day => Number(day.slice(0, 4))))
-    const year = new Date().getUTCFullYear()
-    if (year > latestHolidayYear) {
-      warn(ctx, `no Chinese public holidays are bundled for ${year}; weekday holidays bill at peak until the plugin updates`)
-    }
-  }
-
   const refresh = async () => {
     if (stopped) return
     const controller = new AbortController()
@@ -185,6 +206,13 @@ function startPriceRefresh(ctx, resolved) {
 export async function apply(ctx, config) {
   const resolved = normalizeConfig(config)
   for (const warning of resolved.warnings) warn(ctx, warning)
+  if (resolved.schedule.holidays === CN_HOLIDAYS) {
+    const latestHolidayYear = Math.max(...CN_HOLIDAYS.map(day => Number(day.slice(0, 4))))
+    const year = new Date().getUTCFullYear()
+    if (year > latestHolidayYear) {
+      warn(ctx, `no Chinese public holidays are bundled for ${year}; weekday holidays bill at peak until the plugin updates`)
+    }
+  }
   await ctx.sessionProjections.register(createProjectionDefinition(resolved))
   if (resolved.pricingSource === 'off') {
     info(ctx, 'live price refresh is disabled; using the shipped table and configured overrides')

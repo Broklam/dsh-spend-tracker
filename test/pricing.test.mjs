@@ -229,9 +229,32 @@ test('the discount wording is read literally: off means off, of means a share', 
   assert.equal(off.schedule.discount, 0.25)
   const share = parsePricingMarkdown(`${base}Off-peak rates are 25% of the peak rates. Peak hours are 01:00 - 04:00 UTC, Monday through Friday.`)
   assert.equal(share.schedule.discount, 0.75)
+  const shareShort = parsePricingMarkdown(`${base}Off-peak rates are 25% of peak. Peak hours are 01:00 - 04:00 UTC, Monday through Friday.`)
+  assert.equal(shareShort.schedule.discount, 0.75)
+  const listShare = parsePricingMarkdown(`${base}Off-peak rates are 75% of the list price. Peak hours are 01:00 - 04:00 UTC, Monday through Friday.`)
+  assert.equal(listShare.schedule.discount, 0.25)
   const unknown = parsePricingMarkdown(`${base}Off-peak pricing is generous. Peak hours are 01:00 - 04:00 UTC, Monday through Friday.`)
   assert.equal(unknown.schedule.discount, null)
   assert.ok(unknown.warnings.some(warning => warning.includes('discount')))
+})
+
+test('the UTC peak sentence wins over a misleading earlier one', () => {
+  const markdown = [
+    '| MODEL | MODEL | a-model |',
+    '| --- | --- | --- |',
+    '| PRICING | 1M INPUT TOKENS / (CACHE HIT) | PEAK | $0.01 |',
+    '| PRICING | 1M INPUT TOKENS / (CACHE MISS) | PEAK | $0.1 |',
+    '| PRICING | 1M OUTPUT TOKENS | PEAK | $1 |',
+    '| PRICING | 1M INPUT TOKENS / (CACHE HIT) | OFF-PEAK | $0.005 |',
+    '| PRICING | 1M INPUT TOKENS / (CACHE MISS) | OFF-PEAK | $0.05 |',
+    '| PRICING | 1M OUTPUT TOKENS | OFF-PEAK | $0.5 |',
+    '',
+    'Off-peak hours are billed at 25% off. Peak hours are 01:00 - 04:00 UTC, Monday through Friday.',
+    'Off-peak rates are 25% off.',
+  ].join('\n')
+  const parsed = parsePricingMarkdown(markdown)
+  assert.deepEqual(parsed.schedule.windows, [{ days: [1, 2, 3, 4, 5], start: 60, end: 240 }])
+  assert.equal(parsed.schedule.discount, 0.25)
 })
 
 test('a wrapping weekday range keeps every named day', () => {

@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] — 2026-11-16
+
+### Fixed
+
+- The panel now honors the host's window-chrome top inset in windowed Desktop: the host value is a `calc()` expression, so it is measured with a probe box instead of parsed from the serialized custom property.
+- Keyboard focus moves into the panel once it is visible, and returns to the reading when it closes.
+- The off-peak label shows the percentage actually charged, including a fetched table with its own per-model off-peak rows; when those rows disagree, the label omits the percentage instead of naming a wrong one.
+- Discount prose such as "25% of peak" or "25% of the list price" is read as a price share, not as "25% off"; a leading "Off-peak hours are…" sentence can no longer hijack the peak-hours footnote.
+- The missing-holiday-year warning also runs when `pricingSource` is `off` and when only other `offPeak` fields are configured.
+- An oversized pricing response is refused before its body is buffered.
+
+### Changed
+
+- Tests cover the chrome-inset probe, mixed-percentage status, the discount wordings, above-placement headroom, and the provider-failure path.
+
 ## [0.2.1] — 2026-11-16
 
 ### Fixed
@@ -84,6 +99,7 @@ Initial release.
 - Format-1 DSH plugin index and GitHub Pages workflow for the Discover tab.
 - Unit tests for the fold, state validation, and wire contract.
 
+[0.2.2]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.2.2
 [0.2.1]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.2.1
 [0.2.0]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.2.0
 [0.1.3]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.1.3

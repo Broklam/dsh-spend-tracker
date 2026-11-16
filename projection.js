@@ -434,6 +434,9 @@ function checkWindow(value, where) {
 function checkSchedule(value, where) {
   if (!isRecord(value)) fail(where, 'expected an object')
   if (typeof value.enabled !== 'boolean') fail(where, 'enabled must be a boolean')
+  if (value.offPeakPercent !== null && (!Number.isSafeInteger(value.offPeakPercent) || value.offPeakPercent < 0 || value.offPeakPercent > 100)) {
+    fail(where, 'offPeakPercent must be an integer 0-100 or null')
+  }
   if (typeof value.discount !== 'number' || !Number.isFinite(value.discount) || value.discount < 0 || value.discount >= 1) {
     fail(where, 'discount must be a fraction between 0 and 1')
   }
@@ -641,6 +644,7 @@ export function buildView(state, config) {
   let costPeak = 0
   let costOffPeak = 0
   let saved = 0
+  const offPeakRatios = []
   let pricedCalls = 0
   let unpricedCalls = 0
   let unpricedTokens = 0
@@ -658,6 +662,11 @@ export function buildView(state, config) {
       const peakCost = costOf(entry.peak, rates.peak)
       const offPeakCost = costOf(entry.offPeak, rates.offPeak)
       saved += costOf(entry.offPeak, rates.peak) - offPeakCost
+      if (offPeakTotal > 0) {
+        for (const field of RATE_FIELDS) {
+          if (rates.peak[field] > 0) offPeakRatios.push(rates.offPeak[field] / rates.peak[field])
+        }
+      }
       for (const field of RATE_FIELDS) {
         const fieldCost = (entry.peak[field] * rates.peak[field] + entry.offPeak[field] * rates.offPeak[field]) / 1e6
         if (field === 'input') costInput += fieldCost
@@ -684,6 +693,16 @@ export function buildView(state, config) {
         total: peakTotal + offPeakTotal,
       },
     })
+  }
+  // One percentage only when every billed model charges the same ratio; a
+  // table with per-model off-peak rows has no single discount to name.
+  let offPeakPercent = null
+  if (offPeakRatios.length > 0) {
+    const smallest = Math.min(...offPeakRatios)
+    const largest = Math.max(...offPeakRatios)
+    if (largest - smallest <= 0.005) offPeakPercent = Math.round((1 - (smallest + largest) / 2) * 100)
+  } else if (config.schedule.enabled) {
+    offPeakPercent = Math.round(config.schedule.discount * 100)
   }
   models.sort((left, right) => right.cost - left.cost
     || right.tokens.total - left.tokens.total
@@ -713,6 +732,7 @@ export function buildView(state, config) {
     schedule: {
       enabled: config.schedule.enabled,
       discount: config.schedule.discount,
+      offPeakPercent,
       windows: config.schedule.windows,
       holidays: config.schedule.holidays,
     },

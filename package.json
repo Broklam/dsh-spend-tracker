@@ -1,6 +1,6 @@
 {
   "name": "dsh-spend-tracker",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Estimates what the open DeepSeek Harness chat has spent: a spend reading under the input box with DeepSeek's peak and off-peak pricing, a token, cache, activity, and per-model breakdown, and a price table refreshed from DeepSeek's published rates.",
   "type": "module",
   "main": "index.js",
