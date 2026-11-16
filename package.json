@@ -19,7 +19,9 @@
     "locale/*.json",
     "icon.svg",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "docs",
+    "marketplace"
   ],
   "keywords": [
     "deepseek-harness",
