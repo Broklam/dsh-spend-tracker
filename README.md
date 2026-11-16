@@ -7,6 +7,8 @@ Estimate what the chat you have open has spent so far, and where that spend went
 
 Session spend is a [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin. It adds one estimated spend reading to the composer statistics row under the input box, beside the built-in turns/steps and token readings. Click the reading for a breakdown by token bucket, cache hit, activity count, and model.
 
+![The composer footer in DeepSeek Harness, with the estimated spend reading ≈$0.807 in the statistics row beside turns, tokens, cache hit, and context use](docs/images/composer-dock.png)
+
 The estimate follows DeepSeek's published prices: each request is priced at the peak or off-peak rate for the time its usage settled, the panel names the rate that applies right now, and the price table refreshes itself from DeepSeek's published pricing page.
 
 ## What it shows
@@ -26,28 +28,7 @@ Warnings stay visible at the bottom of the panel: unpriced usage, or a truncated
 
 A row appears when it has data; turns, steps, and tool calls are always shown. Escape, a click outside, or activating another stats control closes the panel. The panel is measured once when it opens and stays put while values update, so a busy session cannot move it; long content scrolls inside it, with the title and rate status kept above the scroll area.
 
-Example output from one session:
-
-```text
-Session spend (estimated)                          $0.523
-● Off-peak hours · 50% off · peak starts in 14h 12m
-─────────────────────────────────────────────────────────
-Estimated spend
-Total                                     $0.523 · 88,129,832
-Input                                      $0.0567 · 375,305
-Cache read                                   $0.267 · 87,423,104
-Output                                        $0.20 · 331,423
-Cache hit                                          99.6%
-
-Activity
-Turns                                                   4
-Steps                                                 375
-Tool calls                                            426
-Retries                                                 9
-Compactions                                             1
-
-About this estimate                                     ▸
-```
+![The open panel: Session spend (estimated), the current off-peak rate, estimated spend and activity rows, and a collapsed About this estimate row](docs/images/session-spend-panel.png)
 
 ## Install
 

@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - The estimate's provenance, the off-peak saving, and the price-table freshness now sit behind a collapsed **About this estimate** row, so the panel opens on the figures and the notes stay out of the way until opened.
 - The panel title names the figure as an estimate: **Session spend (estimated)**.
+- The README shows the composer reading and the open panel as screenshots, replacing the text example.
 
 ## [0.2.2] — 2026-11-16
 
