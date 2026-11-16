@@ -1,0 +1,44 @@
+{
+  "format": 1,
+  "title": {
+    "en": "Broklam's DSH plugins",
+    "zh": "Broklam 的 DSH 插件"
+  },
+  "description": {
+    "en": "Add-on plugins for DeepSeek Harness, maintained by Broklam.",
+    "zh": "由 Broklam 维护的 DeepSeek Harness 插件。"
+  },
+  "plugins": [
+    {
+      "name": "dsh-spend-tracker",
+      "title": {
+        "en": "Session spend",
+        "zh": "会话花费"
+      },
+      "description": {
+        "en": "Shows what the open chat has cost so far, and breaks the estimate down by token bucket, cache hit, activity, and model.",
+        "zh": "显示当前会话到目前为止的花费，并按 Token 分类、缓存命中、活动与模型拆分估算值。"
+      },
+      "icon": "icons/spend.svg",
+      "author": "Broklam",
+      "homepage": "https://github.com/Broklam/dsh-spend-tracker#readme",
+      "repository": {
+        "url": "https://github.com/Broklam/dsh-spend-tracker"
+      },
+      "versions": [
+        {
+          "version": "0.1.0",
+          "publishTimestamp": 1794830027,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/Broklam/dsh-spend-tracker",
+            "commit": "9e94c84e9d50c8c41ca4f3ea6451f0adffc39fb3"
+          },
+          "engines": {
+            "dsh": ">=0.2.2-rc.1"
+          }
+        }
+      ]
+    }
+  ]
+}
