@@ -1,7 +1,7 @@
 {
   "name": "dsh-spend-tracker",
-  "version": "0.1.3",
-  "description": "Tracks what the open DeepSeek Harness chat has cost: an estimated spend reading under the message box with token, cache, activity, and per-model breakdowns.",
+  "version": "0.2.0",
+  "description": "Estimates what the open DeepSeek Harness chat has spent: a spend reading under the input box with DeepSeek's peak and off-peak pricing, a token, cache, activity, and per-model breakdown, and a price table refreshed from DeepSeek's published rates.",
   "type": "module",
   "main": "index.js",
   "exports": {
@@ -14,6 +14,7 @@
   "files": [
     "index.js",
     "projection.js",
+    "pricing.js",
     "client.js",
     "cordis.patch.yml",
     "locale/*.json",
@@ -31,6 +32,8 @@
     "plugin",
     "spend",
     "cost",
+    "pricing",
+    "off-peak",
     "usage",
     "tokens",
     "statistics"

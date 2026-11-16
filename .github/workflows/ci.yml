@@ -25,9 +25,10 @@ jobs:
         run: |
           node --check index.js
           node --check projection.js
+          node --check pricing.js
           node --check client.js
-      - name: Run projection tests
-        run: node --test test/projection.test.mjs
+      - name: Run tests
+        run: node --test test/*.test.mjs
       - name: Validate manifest and locale metadata
         run: |
           node -e "for (const f of ['package.json', 'locale/en.json', 'locale/zh.json']) JSON.parse(require('fs').readFileSync(f, 'utf8'))"

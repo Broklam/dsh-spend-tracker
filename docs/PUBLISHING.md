@@ -3,14 +3,14 @@
 DeepSeek Harness has no central plugin store. There are three places a plugin can be discovered, and this repository is set up for all of them:
 
 1. **DSH Discover tab** — any static JSON *index* that a user adds with **Plugins → Discover → Add index source**. This is the official mechanism, and this repo ships an index plus a GitHub Pages workflow.
-2. **DSH Plugin Hub** ([dsh-plugin.org](https://dsh-plugin.org)) — a community directory. Public repositories tagged `dsh-plugin` are indexed automatically; npm-published packages also appear in the in-app Plugin Hub for one-click install.
+2. **DSH Plugin Hub** ([dsh-plugin.org](https://dsh-plugin.org)) — a community directory. Public repositories tagged `dsh-plugin` are indexed automatically; npm-published packages can then be installed by name from **Plugins → Add plugin**.
 3. **Direct install** — npm, GitHub, or a local clone, without any marketplace.
 
-Profiles matter for every install command below: the Desktop app runs the `desktop` profile, and `dsh web` runs the `web` profile. The Plugin Hub's requirement names the `web` profile explicitly, so the README keeps that form for the marketplace, while Desktop users install from **Plugins → Add plugin** or with `dsh plugin --profile desktop add …`.
+Profiles matter for every install command below: the Desktop app runs the `desktop` profile, and `dsh web` runs the `web` profile. The hub's install command uses the `web` profile, so the submission text keeps that form, while Desktop users install from **Plugins → Add plugin** or with `dsh plugin --profile desktop add …`.
 
 ## 1. Publish to npm
 
-The package name `dsh-spend-tracker` is unclaimed, and the package needs no build step: `index.js`, `projection.js`, and `client.js` are the published files, listed in `files`. You need Node.js 22 or newer with the npm CLI.
+The package name `dsh-spend-tracker` is unclaimed, and the package needs no build step. The published files are `index.js`, `projection.js`, `pricing.js`, `client.js`, `cordis.patch.yml`, `locale/*.json`, `icon.svg`, the README and CHANGELOG, and `docs`/`marketplace`, as listed in `files`. You need Node.js 22 or newer with the npm CLI.
 
 ```sh
 npm login
@@ -50,7 +50,7 @@ The hub crawls public repositories and generates a listing. Requirements, all al
 
 Two actions complete the submission:
 
-1. Keep the npm publish from step 1 current. Without an npm package the site still lists the repository, but the in-app Plugin Hub only shows one-command installs.
+1. Keep the npm publish from step 1 current. Without an npm package the site still lists the repository, but one-command installs by package name are not available from **Plugins → Add plugin**.
 2. Open a submission issue in [dshplugin/dsh-plugin-hub](https://github.com/dshplugin/dsh-plugin-hub/issues/new) to have the listing reviewed, using the template from [dsh-plugin.org/submit](https://dsh-plugin.org/submit). Use this issue title:
 
 ```text
@@ -64,7 +64,7 @@ and this issue body:
 https://github.com/Broklam/dsh-spend-tracker
 
 ### One-line value
-Shows what the open chat has spent so far and breaks the estimate down by token bucket, cache hit, activity, and model.
+Estimates what the open chat has spent, using DeepSeek's peak or off-peak rate for each request, and breaks it down by token bucket, cache hit, activity, and model.
 
 ### Category
 UI & Experience
@@ -79,10 +79,10 @@ DeepSeek Harness >= 0.2.2-rc.1 < 0.3.0; Desktop and web profiles; no runtime dep
 MIT
 
 ### Screenshots / demo
-Example panel output and the rendering rules are in the README. Add a screenshot of the reading under the message box before submitting.
+Example panel output and the rendering rules are in the README. Add a screenshot of the reading under the input box before submitting.
 
 ### Notes
-Local estimates only: no network requests, no credentials, no telemetry. Prices come from a configurable per-million-token table; default rates are DeepSeek's official peak rates, and off-peak usage bills about half.
+Local estimates only. The sole network request is a background HTTPS GET for DeepSeek's public pricing page (no credentials, no session data, no telemetry); prices come from that page when it is reachable and from a bundled table otherwise. Each request is priced at the published peak or off-peak rate for the time its usage settled.
 
 ### Pre-submission checklist
 - [x] Repository is public
@@ -108,11 +108,11 @@ https://broklam.github.io/dsh-spend-tracker/index.json
 
 Users add that URL in **Plugins → Discover → Add index source** after enabling **Custom plugin indexes**. A fork needs one setup step first: enable Pages with **GitHub Actions** as the source (Settings → Pages → Build and deployment → Source: GitHub Actions), or run `gh api --method POST repos/<owner>/<repo>/pages -f build_type=workflow`.
 
-An index pins an exact version and source. After each release, add a version entry and keep the older ones for users who pin versions. Prefer npm after step 1, because it is the install path the Plugin Hub also uses:
+An index pins an exact version and source. After each release, add a version entry and keep the older ones for users who pin versions. Prefer npm after step 1, because it is the install path **Plugins → Add plugin** uses:
 
 ```json
 {
-  "version": "0.1.3",
+  "version": "0.2.0",
   "publishTimestamp": 1794834000,
   "source": { "type": "npm" },
   "engines": { "dsh": ">=0.2.2-rc.1 <0.3.0" }
@@ -123,7 +123,7 @@ A Git source stays useful before an npm release or for a pinned commit. The comm
 
 ```json
 {
-  "version": "0.1.3",
+  "version": "0.2.0",
   "publishTimestamp": 1794834000,
   "source": {
     "type": "git",

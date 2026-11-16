@@ -1,58 +1,64 @@
-# Session spend
+# Session spend ![The plugin icon](icon.svg)
 
 [![CI](https://github.com/Broklam/dsh-spend-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/Broklam/dsh-spend-tracker/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 See what the chat you have open has spent so far, and where that spend went.
 
-Session spend is a [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin. It adds one estimated spend reading to the small stats row under the message box, beside the built-in turns/steps and token readings. Click the reading for a breakdown by token bucket, cache hit, activity count, and model.
+Session spend is a [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin. It adds one estimated spend reading to the composer statistics row under the input box, beside the built-in turns/steps and token readings. Click the reading for a breakdown by token bucket, cache hit, activity count, and model.
 
-![The plugin icon](icon.svg)
+The estimate follows DeepSeek's real pricing: each request is priced at the peak or off-peak rate for the time its usage settled, the panel names the rate that applies right now, and the price table refreshes itself from DeepSeek's published pricing page.
 
 ## What it shows
 
-A single reading: `≈$0.67`. The tilde marks an estimate. A session with no provider-reported usage shows nothing; a session on a model with no configured price shows its token count instead, so an unknown price never reads as zero spend.
+A single reading: `≈$0.67`. The `≈` marks an estimate. A session with no provider-reported usage shows nothing; a session on a model with no configured price shows its token count instead, so an unknown price never reads as zero spend.
 
 Clicking the reading opens a panel with:
 
 | Section | Rows |
 | --- | --- |
+| Rate status | Peak or off-peak right now, the off-peak discount when it applies, and when the rate next changes; hidden when `offPeak: false` |
 | Estimated spend | Total, input, cache read, cache write, output, reasoning, cache hit |
 | Activity | Turns, steps, tool calls, tool errors, retries, compactions |
 | By model | Spend and tokens per model, when more than one was billed |
 
-A row appears when it has data; turns, steps, and tool calls are always shown. Escape, a click outside, or activating another stats control closes the panel.
+Notes say what is unpriced, when the model list was truncated, that the figure is an estimate, how much off-peak rates saved, and whether the prices came from the pricing page or the bundled table.
+
+A row appears when it has data; turns, steps, and tool calls are always shown. Escape, a click outside, or activating another stats control closes the panel. The panel is measured once when it opens and stays put while values update, so a busy session cannot move it; long content scrolls inside it, with the title and rate status kept above the scroll area.
 
 Example output from one session:
 
 ```text
-Session spend                                      $0.67
+Session spend                                      $0.523
+● Off-peak hours · 50% off · peak starts in 14h 12m
 ─────────────────────────────────────────────────────────
 Estimated spend
-Total                                       $0.67 · 62,341,069
-Input                                       $0.0785 · 261,752
-Cache read                                   $0.371 · 61,895,936
-Output                                         $0.22 · 183,381
+Total                                     $0.523 · 88,129,832
+Input                                      $0.0567 · 375,305
+Cache read                                   $0.267 · 87,423,104
+Output                                        $0.20 · 331,423
 Cache hit                                          99.6%
 
 Activity
-Turns                                                   3
-Steps                                                 249
-Tool calls                                            290
+Turns                                                   4
+Steps                                                 375
+Tool calls                                            426
 Retries                                                 9
+Compactions                                             1
 
-Estimated from the configured price table, not a billed amount.
-Shipped rates are DeepSeek peak rates; off-peak usage bills about half.
+Estimated from DeepSeek's prices, not a billed amount.
+Off-peak rates lowered this estimate by about $0.511.
+Prices refreshed from the pricing page just now.
 ```
 
 ## Install
 
-Requirements: DeepSeek Harness 0.2.2-rc.1 up to, but not including, 0.3.0, with the web UI (the Desktop app and `dsh web` both include it), and pnpm for CLI profile installs.
+Requirements: DeepSeek Harness 0.2.2-rc.1 up to, but not including, 0.3.0, with the web UI. The Desktop app and `dsh web` both include it.
 
 ### Desktop app
 
 1. Open **Plugins**.
-2. Choose **Add plugin** and select this package's directory.
+2. Choose **Add plugin** and paste this package's absolute directory path.
 3. Turn the **Session spend** row on.
 
 The Desktop app runs the `desktop` profile. To install from a terminal instead, name that profile:
@@ -63,7 +69,7 @@ dsh plugin --profile desktop add github:Broklam/dsh-spend-tracker               
 dsh plugin --profile desktop add ./dsh-spend-tracker                                # a local clone
 ```
 
-Once the package is published to npm, **Settings → Plugin Hub** also installs it without a terminal.
+Once the package is published to npm, **Plugins → Add plugin** installs it by package name without a terminal.
 
 ### Web profile (CLI)
 
@@ -82,14 +88,16 @@ The package ships plain JavaScript, so no build step or install-build permission
 
 ## Configure prices
 
-Spend is computed from token counts and a price table in units of your currency per million tokens. The shipped table holds the official [DeepSeek peak-hour rates](https://api-docs.deepseek.com/quick_start/pricing) for the two models the current DeepSeek adapter offers:
+Spend is computed from token counts and a price table in units of your currency per million tokens. The bundled table holds the official [DeepSeek rates](https://api-docs.deepseek.com/quick_start/pricing) for the two models the DeepSeek providers ship in their built-in catalog. Peak and off-peak are the published values; off-peak is half of peak:
 
-| Model | Input (cache miss) | Cache read | Cache write | Output |
-| --- | --- | --- | --- | --- |
-| `deepseek-flash` | 0.30 | 0.006 | 0.30 | 1.20 |
-| `deepseek-v4-pro` | 1.32 | 0.044 | 1.32 | 3.96 |
+| Model | Tier | Input (cache miss) | Cache read | Cache write | Output |
+| --- | --- | --- | --- | --- | --- |
+| `deepseek-flash` | Peak | 0.30 | 0.006 | 0.30 | 1.20 |
+| `deepseek-flash` | Off-peak | 0.15 | 0.003 | 0.15 | 0.60 |
+| `deepseek-v4-pro` | Peak | 1.32 | 0.044 | 1.32 | 3.96 |
+| `deepseek-v4-pro` | Off-peak | 0.66 | 0.022 | 0.66 | 1.98 |
 
-DeepSeek publishes three rates: cache-hit input, cache-miss input, and output. The cache-write column repeats the cache-miss rate because that is what a written prefix is billed at; DeepSeek currently reports no cache-write tokens.
+DeepSeek publishes three rates: cache-hit input, cache-miss input, and output. The cache-write column repeats the cache-miss rate because that is what a written prefix is billed at; DeepSeek's usage records report no separate cache-write tokens. The bundled rates are DeepSeek's US-dollar prices; `currencySymbol` and `decimals` change only how amounts are displayed. To bill in another currency, replace the table.
 
 Override or extend the table in your profile's `cordis.patch.yml`:
 
@@ -118,22 +126,56 @@ Override or extend the table in your profile's `cordis.patch.yml`:
       output: 4
 ```
 
-Keys match as `provider/model` first, then as a bare model id, so one `deepseek-flash` entry covers every provider that serves it. An entry for a shipped model inherits the rest of that model's shipped rates. Another route inherits from `defaultPricing` when it is set, and must supply all four rates otherwise. A malformed entry is ignored with a warning in the host log, and its route stays unpriced, so a typo never bills at borrowed rates.
+Keys match as `provider/model` first, then as a bare model id, so one `deepseek-flash` entry covers every provider that serves it. A field you set overrides the live table; a field you leave out follows it, including refreshed prices. Another route inherits from `defaultPricing` when it is set and must supply all four rates otherwise. An entry without the rates it needs is ignored with a warning in the host log; a route with no bundled rates stays unpriced, while a shipped model keeps its bundled rates. The off-peak rate always follows the peak rate you set, at the published discount.
 
-Prices are read when a session is rendered, so editing the table also reprices past sessions. The panel stops printing the peak-rate caveat as soon as you reprice a shipped model, because the table is then yours.
+### Peak and off-peak hours
+
+[DeepSeek's billing page](https://api-docs.deepseek.com/quick_start/pricing) defines peak hours as **01:00–04:00 and 06:00–10:00 UTC, Monday through Friday, excluding Chinese public holidays**. Every other hour is off-peak at half the peak rate, including weekends and Chinese public holidays in full.
+
+The plugin classifies each usage settlement by its own UTC timestamp, so a session that spans a boundary pays the right rate on each side of it. The panel's status line reads the current clock, not the last model response, so it keeps ticking while you read it. Classification uses each settlement's timestamp; a request that crosses a boundary is charged at the tier of its settlement.
+
+Weekday Chinese public holidays for 2026 and 2027 are bundled. `offPeak.holidays` replaces that list, so supply every date you need, including years already bundled.
+
+```yaml
+- id: spend-tracker
+  name: dsh-spend-tracker
+  config:
+    # fraction taken off the peak rate: 0.5 means half price.
+    offPeak:
+      discount: 0.5
+      windows:
+        - days: [1, 2, 3, 4, 5]   # 0 = Sunday … 6 = Saturday, UTC
+          start: '01:00'
+          end: '04:00'
+        - days: [1, 2, 3, 4, 5]
+          start: '06:00'
+          end: '10:00'
+      holidays: ['2028-01-03']    # replaces the bundled Chinese list
+```
+
+`offPeak: false` turns time-of-day pricing off and bills everything at the peak table. Any `offPeak` block you write also stops the refresh from replacing the schedule, because the schedule is then yours.
+
+### Keep prices current
+
+Every six hours, and once when the plugin loads, the Host fetches the public pricing document through DeepSeek Harness's web capability (falling back to the process's own HTTP client) and replaces the bundled prices for every model the page still lists with complete, plausible rows; a model the page no longer lists keeps its bundled price. When you have not configured `offPeak`, that same fetch also takes the page's footnote as the peak windows and discount.
+
+Nothing is sent with the request beyond a default user agent. If the fetch fails or the page is unreadable, the current table stays in place, the failure is written once to the host log, and the refresh is retried after 15 minutes before it settles back into its normal period. `pricingSource: 'off'` stops the fetch entirely; any other value is read as `'deepseek'`.
+
+Refreshed prices apply when a session's value is next recomputed — normally its next activity, or when it is reopened. An idle open session keeps its last reading until then.
 
 ## How the estimate is computed
 
 - Usage comes from the provider's own accounting on each settled assistant message. A retried attempt stays billable: the attempt that streamed before the retry keeps its tokens, and the retried settlement adds, which matches the built-in token counter. Compaction summaries count as their own calls.
-- Spend is `tokens × price ÷ 1,000,000` for each of input, cache read, cache write, and output, summed over the models the session used.
+- Spend is `tokens × price ÷ 1,000,000` for each of input, cache read, cache write, and output, summed over the models the session used. The price is the peak or off-peak rate for that usage settlement's UTC time.
 - Reasoning tokens are reported separately and **not** charged: providers bill them inside output tokens.
 - A fork inherits its parent's spend prefix, the same way the built-in token counter does.
+- The rate table is never folded into state, so a refreshed or edited price reprices the whole session the next time its value is read.
 
-This is an estimate, not an invoice. Search and fetch calls, file parsing, speech, subscription plans, bonus credit, currency conversion, and time-of-day pricing are not modelled.
+This is an estimate, not an invoice. Search and fetch calls, file parsing, speech, subscription plans, bonus credit, and currency conversion are not modelled.
 
 ## Privacy
 
-The plugin makes no network requests, reads no credentials, and sends nothing anywhere. It folds usage that is already in the session log you control, and the result stays in memory and in the local projection cache. It has no account, telemetry, or update channel.
+The plugin reads the configured pricing page (DeepSeek's by default) over HTTPS — once when it loads and then every `refreshHours` — and sends no session content, credential, or identifier beyond the default user agent. It has no account, telemetry, or update channel. Everything else stays local: it folds usage that is already in the session log you control, and the result lives in memory and in the local projection cache. Set `pricingSource: 'off'` to make it fully offline.
 
 ## Compatibility
 
@@ -143,35 +185,38 @@ The plugin makes no network requests, reads no credentials, and sends nothing an
 | Profiles | Desktop and web |
 | UI surfaces | Composer dock entry `spend` in `conversation.composer.dock` |
 | Dependencies | None at runtime; React and React DOM come from the app |
-| Permissions | None; no tools, no shell, no files outside the profile |
+| Permissions | Outbound HTTPS GET to the configured pricing URL (default `api-docs.deepseek.com`); no tools, no shell, no files outside the profile |
 | Disable | Turn the row off; the reading disappears and the statistics stop |
 
 ## How it works
 
 ```text
 session events ──► sessionSpend projection (Host) ──► wire view ──► composer dock reading + panel (Browser)
+                        ▲
+DeepSeek pricing page ──┘  (pricing.js parses the rate table and peak windows)
 ```
 
-- [`index.js`](index.js) registers the `sessionSpend` session projection.
-- [`projection.js`](projection.js) is the pure fold: usage events in, token, call, and activity totals out; spend is derived when the value is rendered.
-- [`client.js`](client.js) registers the reading and its panel, with English and Simplified Chinese copy.
+- [`index.js`](index.js) registers the `sessionSpend` session projection and the background price refresh.
+- [`projection.js`](projection.js) is the pure fold: usage events in, per-tier token, call, and activity totals out; spend is derived when the value is rendered.
+- [`pricing.js`](pricing.js) holds DeepSeek's peak windows, the bundled holiday calendar, and the parser for the published pricing markdown.
+- [`client.js`](client.js) registers the reading and its panel, with the live rate-status line and English and Simplified Chinese copy.
 - Projection state is checkpointed and versioned, validated on restore, and excluded from session summaries, so the sidebar list carries nothing extra.
 
 ## Development
 
 ```sh
-node --check index.js && node --check projection.js && node --check client.js
-node --test test/projection.test.mjs
+node --check index.js && node --check projection.js && node --check pricing.js && node --check client.js
+node --test test/*.test.mjs
 ```
 
-The tests cover retry bills, per-model attribution, unpriced models, compaction calls, activity counters, state validation, and the wire contract. There are no runtime dependencies to install.
+The tests cover peak and off-peak classification (including weekends, holidays, and window boundaries), the pricing-page parser and its fallbacks, retry bills, per-tier replacement, per-model attribution, unpriced models, compaction calls, activity counters, live repricing, the refresh lifecycle, the browser placement and status helpers, state validation, the wire contract, and that the English and Chinese copy tables stay in sync. They run against a fixture of the pricing page fetched on 2026-11-16, so a layout change on DeepSeek's side shows up as a parser warning instead of a silently mispriced table. There are no runtime dependencies to install.
 
 ## Marketplaces
 
-- **DSH Discover tab**: this repository publishes a format-1 plugin index at `https://broklam.github.io/dsh-spend-tracker/index.json`. Enable **Custom plugin indexes**, open **Plugins → Discover → Add index source**, and paste that URL. The index lives in [`marketplace/index.json`](marketplace/index.json) and pins each listed release commit.
-- **DSH Plugin Hub** ([dsh-plugin.org](https://dsh-plugin.org)): the community directory indexes public repositories tagged `dsh-plugin`, and lists npm-published plugins in the in-app Plugin Hub for one-click install.
+- **DSH Discover tab**: this repository publishes a format-1 plugin index at `https://broklam.github.io/dsh-spend-tracker/index.json`. Open **Plugins**, switch on **Custom plugin indexes** under **Experimental plugins**, then choose **Discover → Add index source** and paste that URL. The index lives in [`marketplace/index.json`](marketplace/index.json) and pins each listed release to its commit.
+- **DSH Plugin Hub** ([dsh-plugin.org](https://dsh-plugin.org)): the community directory indexes public repositories tagged `dsh-plugin`. After the npm publish, install by package name from **Plugins → Add plugin**, or add this index source under Discover.
 
-[docs/PUBLISHING.md](docs/PUBLISHING.md) covers both submission paths step by step, including the npm release that puts the plugin in the in-app Plugin Hub.
+[docs/PUBLISHING.md](docs/PUBLISHING.md) covers both submission paths step by step, including the npm release that makes the package available from the Plugins page.
 
 ## License
 

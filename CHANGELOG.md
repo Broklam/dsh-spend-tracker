@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — 2026-11-16
+
+### Added
+
+- Peak and off-peak pricing from DeepSeek's published schedule. Each usage settlement is classified by its own UTC timestamp, so it bills at the peak rate or at the published off-peak discount for that moment; a session that spans a boundary pays the right rate on each side.
+- A rate-status line in the panel: the tier in effect, the off-peak discount when it applies, and the time until the next change, refreshed every 30 seconds while the panel is open.
+- The price table refreshes from DeepSeek's pricing document once at startup and every `refreshHours` (default six), through the Host's web capability. A failed fetch or an unreadable page leaves the previous table in place, writes a warning to the host log, and is retried after 15 minutes (up to three times) before returning to the normal period. `pricingSource: 'off'` keeps everything offline.
+- Weekday Chinese public holidays for 2026 and 2027 are bundled, so holiday pricing follows the published rule; `offPeak.holidays` replaces the list.
+- `offPeak` configuration for the discount, UTC peak windows, holidays, and disabling time-of-day pricing entirely.
+
+### Changed
+
+- Existing session totals are recomputed once from the session log after upgrading, because usage is now tracked per peak and off-peak tier.
+- A refreshed price table reprices the session on the next read, with no state rewrite. While a session is open and idle, the current reading keeps its previous prices until the session's next activity or reopen.
+- An override that sets only some rates now follows the refreshed table for the rest, instead of freezing the other fields at activation time.
+- Notes: the estimate line names DeepSeek's prices, an off-peak line reports what the discount saved, and a rate-source line reports when the table was last refreshed.
+- The panel is measured once when it opens and pinned at that position and size, so live updates scroll inside the fixed box instead of moving the window; the title and rate status stay above the scroll area. Resizing the viewport re-derives the position from the stored size.
+
+### Fixed
+
+- The panel no longer crawls upward while values update, and it no longer scrolls away from a bottom-docked pill when its content grows.
+- A "25% off" discount is now billed as 25% off rather than as 75% of peak; the status line reports the same percentage that is charged.
+
 ## [0.1.3] — 2026-11-16
 
 ### Fixed
@@ -48,6 +71,7 @@ Initial release.
 - Format-1 DSH plugin index and GitHub Pages workflow for the Discover tab.
 - Unit tests for the fold, state validation, and wire contract.
 
+[0.2.0]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.2.0
 [0.1.3]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.1.3
 [0.1.2]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.1.2
 [0.1.1]: https://github.com/Broklam/dsh-spend-tracker/releases/tag/v0.1.1

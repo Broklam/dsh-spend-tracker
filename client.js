@@ -14,9 +14,18 @@ window.__ModuleLoader__.load({
     /** English dictionary; keys are flat and placeholders use `{name}`. */
     const EN = {
       'pill.spendTitle': 'Session spend (estimated): {cost}',
-      'pill.tokensTitle': '{tokens} tokens this session; no price is configured for its model',
-      'pill.tokens': '{tokens} tok',
+      'pill.tokensTitle': 'Session tokens: {tokens}; no price is configured for the models it used',
+      'pill.tokens': '{tokens} tokens',
       'dialog.title': 'Session spend',
+      'status.peak': 'Peak hours · off-peak starts in {remaining}',
+      'status.offPeak': 'Off-peak hours · {percent}% off · peak starts in {remaining}',
+      'status.peakNoBoundary': 'Peak hours',
+      'status.offPeakNoBoundary': 'Off-peak hours · {percent}% off',
+      'duration.minutes': '{minutes}m',
+      'duration.hours': '{hours}h',
+      'duration.hoursMinutes': '{hours}h {minutes}m',
+      'duration.days': '{days}d',
+      'duration.daysHours': '{days}d {hours}h',
       'section.spend': 'Estimated spend',
       'section.tokens': 'Tokens',
       'section.activity': 'Activity',
@@ -36,20 +45,35 @@ window.__ModuleLoader__.load({
       'row.compactions': 'Compactions',
       'value.moneyTokens': '{cost} · {tokens}',
       'value.tokensOnly': '{tokens}',
-      'note.unpriced': '{calls} calls used a model with no configured price ({tokens} tokens unpriced).',
-      'note.models': 'Top {shown} of {total} models shown.',
-      'note.estimate': 'Estimated from the configured price table, not a billed amount.',
-      'note.peak': 'Shipped rates are DeepSeek peak rates; off-peak usage bills about half.',
+      'note.unpriced': 'Unpriced model usage: {calls} calls, {tokens} tokens. Add its rates under pricing in cordis.patch.yml.',
+      'note.models': 'Showing {shown} of {total} models.',
+      'note.estimate': 'Estimated from DeepSeek\'s prices, not a billed amount.',
+      'note.offPeakSaved': 'Off-peak rates lowered this estimate by about {amount}.',
+      'note.rates': 'Prices refreshed from the pricing page {when}.',
+      'note.ratesBundled': 'Bundled DeepSeek prices (the live refresh is off or has not succeeded).',
+      'time.justNow': 'just now',
+      'time.minutesAgo': '{minutes} min ago',
+      'time.hoursAgo': '{hours}h ago',
+      'time.daysAgo': '{days}d ago',
     }
 
     /** Simplified Chinese dictionary of the same keys. */
     const ZH = {
       'pill.spendTitle': '本次会话花费（估算）：{cost}',
-      'pill.tokensTitle': '本次会话 {tokens} tokens；该模型未配置价格',
+      'pill.tokensTitle': '本次会话 {tokens} tokens；所用模型未配置价格',
       'pill.tokens': '{tokens} tokens',
       'dialog.title': '会话花费',
+      'status.peak': '高峰时段 · {remaining}后转非高峰',
+      'status.offPeak': '非高峰时段 · 优惠 {percent}% · {remaining}后转高峰',
+      'status.peakNoBoundary': '高峰时段',
+      'status.offPeakNoBoundary': '非高峰时段 · 优惠 {percent}%',
+      'duration.minutes': '{minutes}分钟',
+      'duration.hours': '{hours}小时',
+      'duration.hoursMinutes': '{hours}小时{minutes}分',
+      'duration.days': '{days}天',
+      'duration.daysHours': '{days}天{hours}小时',
       'section.spend': '估算花费',
-      'section.tokens': 'Tokens',
+      'section.tokens': 'Token 数',
       'section.activity': '活动',
       'section.models': '按模型',
       'row.total': '合计',
@@ -67,13 +91,25 @@ window.__ModuleLoader__.load({
       'row.compactions': '上下文压缩',
       'value.moneyTokens': '{cost} · {tokens}',
       'value.tokensOnly': '{tokens}',
-      'note.unpriced': '有 {calls} 次调用使用了未配置价格的模型（{tokens} tokens 未计价）。',
+      'note.unpriced': '未定价的模型用量：调用 {calls} 次，Token {tokens} 个。可在 cordis.patch.yml 的 pricing 中为其补充价格。',
       'note.models': '仅显示 {total} 个模型中的前 {shown} 个。',
-      'note.estimate': '按已配置的价格表估算，并非实际账单金额。',
-      'note.peak': '内置价格为 DeepSeek 高峰时段价格；非高峰时段约按半价计费。',
+      'note.estimate': '按 DeepSeek 价格估算，并非实际账单金额。',
+      'note.offPeakSaved': '非高峰费率使本次估算减少约 {amount}。',
+      'note.rates': '价格来自价格页，{when}更新。',
+      'note.ratesBundled': '使用内置 DeepSeek 价格（实时刷新已关闭或尚未成功）。',
+      'time.justNow': '刚刚',
+      'time.minutesAgo': '{minutes} 分钟前',
+      'time.hoursAgo': '{hours} 小时前',
+      'time.daysAgo': '{days} 天前',
     }
 
-    /** Pill and dialog skin; theme tokens only, host tokens with graceful fallbacks. */
+    /**
+     * Pill and dialog skin; theme tokens only, host tokens with graceful
+     * fallbacks. The panel is measured and pinned in JavaScript, so it never
+     * relies on CSS anchor positioning and never moves when its content
+     * updates: its box stays exactly where it opened, and a growing list
+     * scrolls inside it.
+     */
     const CSS = `
       .dsh-spend-anchor {
         display: inline-flex;
@@ -123,8 +159,8 @@ window.__ModuleLoader__.load({
         z-index: 1100;
         box-sizing: border-box;
         width: max-content;
-        min-width: min(300px, calc(100vw - 24px));
         max-width: min(440px, calc(100vw - 24px));
+        max-height: calc(100dvh - 24px);
         padding: 16px;
         border: 0;
         border-radius: var(--dsw-radius-lg, 10px);
@@ -136,62 +172,20 @@ window.__ModuleLoader__.load({
         font-size: 12px;
         line-height: 18px;
         cursor: default;
-        max-height: calc(100dvh - 12px - max(12px, var(--dsh-frame-overlay-top, 12px)));
-        overflow-x: hidden;
-        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
         --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
         --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
-        position-area: none;
-        top: max(12px, var(--dsh-frame-overlay-top, 12px));
-        bottom: max(12px, calc(anchor(top) + 8px));
-        left: max(12px, anchor(left));
-        right: 12px;
-        height: fit-content;
+      }
+      .dsh-spend-panel-head {
+        flex: none;
+      }
+      .dsh-spend-panel-body {
+        flex: 1 1 auto;
         min-height: 0;
-        margin: 0;
-        align-self: end;
-        justify-self: start;
-        position-try-fallbacks: --dsh-spend-window, --dsh-spend-opposite, --dsh-spend-wide-opposite, --dsh-spend-tall, --dsh-spend-viewport;
-      }
-      @position-try --dsh-spend-window {
-        position-area: none;
-        top: max(12px, var(--dsh-frame-overlay-top, 12px));
-        bottom: max(12px, calc(anchor(top) + 8px));
-        left: 12px;
-        right: 12px;
-        margin: 0;
-        align-self: safe end;
-        justify-self: safe end;
-      }
-      @position-try --dsh-spend-opposite {
-        top: max(12px, calc(anchor(bottom) + 8px));
-        bottom: 12px;
-        align-self: start;
-      }
-      @position-try --dsh-spend-wide-opposite {
-        top: max(12px, calc(anchor(bottom) + 8px));
-        bottom: 12px;
-        left: 12px;
-        right: 12px;
-        align-self: start;
-        justify-self: safe end;
-      }
-      @position-try --dsh-spend-tall {
-        position-area: none;
-        top: max(12px, var(--dsh-frame-overlay-top, 12px));
-        bottom: 12px;
-        left: max(12px, anchor(left));
-        right: 12px;
-        margin: 0;
-        align-self: safe start;
-        justify-self: start;
-      }
-      @position-try --dsh-spend-viewport {
-        position-area: none;
-        inset: max(12px, var(--dsh-frame-overlay-top, 12px)) 12px 12px;
-        margin: 0;
-        align-self: safe start;
-        justify-self: safe end;
+        overflow-x: hidden;
+        overflow-y: auto;
+        scrollbar-gutter: stable;
       }
       .dsh-spend-title {
         display: flex;
@@ -214,6 +208,24 @@ window.__ModuleLoader__.load({
       }
       .dsh-spend-title-value {
         font-variant-numeric: tabular-nums;
+      }
+      .dsh-spend-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 10px;
+        color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-secondary, CanvasText));
+        font-variant-numeric: tabular-nums;
+      }
+      .dsh-spend-status-dot {
+        width: 6px;
+        height: 6px;
+        flex: none;
+        border-radius: 50%;
+        background: var(--dsw-alias-state-warn-primary, currentColor);
+      }
+      .dsh-spend-status[data-tier='offPeak'] .dsh-spend-status-dot {
+        background: var(--dsw-alias-state-success-primary, currentColor);
       }
       .dsh-spend-rule {
         margin-bottom: 10px;
@@ -314,6 +326,146 @@ window.__ModuleLoader__.load({
       return `${rounded >= 100 ? '99.9' : String(rounded)}%`
     }
 
+    // ---------------------------------------------------------------- rate status
+
+    /** UTC calendar day of an instant, matching the Host's holiday keys. */
+    function utcDay(epochMs) {
+      return new Date(epochMs).toISOString().slice(0, 10)
+    }
+
+    /**
+     * Whether an instant bills at peak rates. Mirrors `pricing.js` on the Host:
+     * the windows are half-open UTC-minute ranges, a holiday is off-peak in
+     * full, and `null` means off-peak pricing is not in effect.
+     * @param schedule - wire schedule from the Host view.
+     * @param epochMs - instant to classify.
+     * @returns `'peak'`, `'offPeak'`, or null when no schedule applies.
+     */
+    function tierAt(schedule, epochMs) {
+      if (!schedule || schedule.enabled !== true || !Array.isArray(schedule.windows) || schedule.windows.length === 0) return null
+      const time = new Date(epochMs)
+      const day = time.getUTCDay()
+      const minutes = time.getUTCHours() * 60 + time.getUTCMinutes()
+      if (Array.isArray(schedule.holidays) && schedule.holidays.includes(utcDay(epochMs))) return 'offPeak'
+      const peak = schedule.windows.some(window => window.days.includes(day) && minutes >= window.start && minutes < window.end)
+      return peak ? 'peak' : 'offPeak'
+    }
+
+    /**
+     * Milliseconds until the next tier change, or null when no boundary falls
+     * within a fortnight. Checks the boundary instants directly (midnight,
+     * window starts and ends) rather than walking the clock minute by minute.
+     */
+    function msUntilTierChange(schedule, epochMs) {
+      const current = tierAt(schedule, epochMs)
+      if (current === null) return null
+      const dayStart = Math.floor(epochMs / 86400000) * 86400000
+      const candidates = []
+      for (let offset = 0; offset <= 15; offset += 1) {
+        const midnight = dayStart + offset * 86400000
+        candidates.push(midnight)
+        const day = new Date(midnight).getUTCDay()
+        for (const window of schedule.windows) {
+          if (!window.days.includes(day)) continue
+          candidates.push(midnight + window.start * 60000, midnight + window.end * 60000)
+        }
+      }
+      candidates.sort((left, right) => left - right)
+      for (const candidate of candidates) {
+        if (candidate > epochMs && tierAt(schedule, candidate) !== current) return candidate - epochMs
+      }
+      return null
+    }
+
+    /** Tier, discount percentage, and countdown text for one instant. */
+    function describeStatus(schedule, epochMs, t) {
+      const tier = tierAt(schedule, epochMs)
+      if (tier === null) return null
+      const percentOff = Math.round(schedule.discount * 100)
+      const remaining = msUntilTierChange(schedule, epochMs)
+      const text = tier === 'peak'
+        ? (remaining === null ? t('status.peakNoBoundary') : t('status.peak', { remaining: formatRemaining(remaining, t) }))
+        : (remaining === null
+          ? t('status.offPeakNoBoundary', { percent: percentOff })
+          : t('status.offPeak', { percent: percentOff, remaining: formatRemaining(remaining, t) }))
+      return { tier, text, percentOff, remaining }
+    }
+
+    /** Short remaining-time text: 48m / 2h 14m / 1d / 1d 3h. */
+    function formatRemaining(ms, t) {
+      const totalMinutes = Math.max(1, Math.ceil(ms / 60000))
+      if (totalMinutes < 60) return t('duration.minutes', { minutes: totalMinutes })
+      const hours = Math.floor(totalMinutes / 60)
+      const minutes = totalMinutes % 60
+      if (hours < 24) return minutes === 0 ? t('duration.hours', { hours }) : t('duration.hoursMinutes', { hours, minutes })
+      const days = Math.floor(hours / 24)
+      return hours % 24 === 0 ? t('duration.days', { days }) : t('duration.daysHours', { days, hours: hours % 24 })
+    }
+
+    /** Relative age of the live rate table: just now / 12 min ago / 3h ago / 2d ago. */
+    function formatAge(updatedAt, now, t) {
+      const age = Math.max(0, now - updatedAt)
+      if (age < 60000) return t('time.justNow')
+      if (age < 3600000) return t('time.minutesAgo', { minutes: Math.round(age / 60000) })
+      if (age < 86400000) return t('time.hoursAgo', { hours: Math.round(age / 3600000) })
+      return t('time.daysAgo', { days: Math.round(age / 86400000) })
+    }
+
+    // ---------------------------------------------------------------- placement
+
+    /** Gap between the pill and its panel, and the panel's viewport inset. */
+    const PANEL_GAP = 8
+    const PANEL_INSET = 12
+    /** Preferred panel width bounds. */
+    const PANEL_MIN_WIDTH = 300
+    const PANEL_MAX_WIDTH = 440
+
+    /** Host-defined top overlay inset, so the pinned panel stays below window chrome. */
+    function overlayTopInset() {
+      try {
+        const raw = window.getComputedStyle(document.documentElement).getPropertyValue('--dsh-frame-overlay-top')
+        const value = Number.parseFloat(raw)
+        return Number.isFinite(value) && value > PANEL_INSET ? value : PANEL_INSET
+      } catch {
+        return PANEL_INSET
+      }
+    }
+
+    /**
+     * Pin one panel geometry above (preferred) or below its trigger. The
+     * result is a complete fixed box: once applied, the panel never moves when
+     * its content grows, so a live-updating reading cannot drag it upward.
+     * @param trigger - pill rect in viewport coordinates.
+     * @param panel - panel's natural size.
+     * @param viewport - current viewport size.
+     * @param topInset - host chrome to stay below, in pixels.
+     * @returns fixed top/left/width/height in pixels.
+     */
+    function computePanelPlacement(trigger, panel, viewport, topInset = PANEL_INSET) {
+      const headroom = Math.max(PANEL_INSET, topInset)
+      const maxWidth = Math.min(PANEL_MAX_WIDTH, Math.max(0, viewport.width - PANEL_INSET * 2))
+      const width = Math.min(Math.max(panel.width, Math.min(PANEL_MIN_WIDTH, maxWidth)), maxWidth)
+      const naturalHeight = Math.min(panel.height, Math.max(0, viewport.height - headroom - PANEL_INSET))
+      const spaceAbove = Math.max(0, trigger.top - PANEL_GAP - headroom)
+      const spaceBelow = Math.max(0, viewport.height - PANEL_INSET - trigger.bottom - PANEL_GAP)
+      let above = naturalHeight <= spaceAbove || (naturalHeight > spaceBelow && spaceAbove >= spaceBelow)
+      let height = Math.min(naturalHeight, above ? spaceAbove : spaceBelow)
+      if (height <= 0) {
+        above = spaceAbove >= spaceBelow
+        height = Math.min(naturalHeight, Math.max(0, Math.max(spaceAbove, spaceBelow)))
+      }
+      const top = above
+        ? Math.max(headroom, trigger.top - PANEL_GAP - height)
+        : Math.min(viewport.height - PANEL_INSET - height, trigger.bottom + PANEL_GAP)
+      const left = Math.max(PANEL_INSET, Math.min(trigger.left, viewport.width - PANEL_INSET - width))
+      return { top, left, width, height }
+    }
+
+    /** Viewport size; kept in one place so tests read the same shape. */
+    function viewportSize() {
+      return { width: window.innerWidth, height: window.innerHeight }
+    }
+
     // ---------------------------------------------------------------- components
 
     /** Money-like glyph: a note with its centre mark. */
@@ -357,13 +509,14 @@ window.__ModuleLoader__.load({
       const t = props.t
       const spend = typeof useProjection === 'function' ? useProjection('sessionSpend') : undefined
       const [open, setOpen] = React.useState(false)
-      const rootRef = React.useRef(null)
+      const [geometry, setGeometry] = React.useState(null)
+      const [now, setNow] = React.useState(() => Date.now())
+      const pillRef = React.useRef(null)
       const panelRef = React.useRef(null)
-      const anchorName = `--dsh-spend-${React.useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
 
       React.useEffect(() => {
         if (!open) return undefined
-        const outside = target => rootRef.current?.contains(target) !== true && panelRef.current?.contains(target) !== true
+        const outside = target => pillRef.current?.contains(target) !== true && panelRef.current?.contains(target) !== true
         const closeOnPointer = event => {
           if (outside(event.target)) setOpen(false)
         }
@@ -374,7 +527,6 @@ window.__ModuleLoader__.load({
         }
         const closeOnKey = event => {
           if (event.key !== 'Escape') return
-          event.stopPropagation()
           setOpen(false)
         }
         document.addEventListener('pointerdown', closeOnPointer, true)
@@ -387,6 +539,72 @@ window.__ModuleLoader__.load({
         }
       }, [open])
 
+      // The tier boundary is a wall-clock fact, not a projection update, so the
+      // status line ticks on its own while the panel is open. Opening sets the
+      // clock before the first paint; the interval keeps it current afterwards.
+      React.useEffect(() => {
+        if (!open) return undefined
+        setNow(Date.now())
+        const timer = setInterval(() => { setNow(Date.now()) }, 30000)
+        return () => { clearInterval(timer) }
+      }, [open])
+
+      // Move focus into the dialog while it is open, and give it back to the
+      // pill afterwards, so keyboard users are not left behind the portal.
+      React.useEffect(() => {
+        if (!open) return undefined
+        const panel = panelRef.current
+        const previous = document.activeElement
+        panel?.focus?.()
+        return () => {
+          // Only take focus back if the closing panel still owns it; a click
+          // that opened another control must not be undone here.
+          const active = document.activeElement
+          const panelOwned = active === null || active === panel || active === document.body
+          if (panelOwned && previous !== null && typeof previous.focus === 'function') previous.focus()
+        }
+      }, [open])
+
+      // Measure once per opening and pin the box. Content updates after this
+      // point only scroll inside the pinned box; they never move it.
+      React.useLayoutEffect(() => {
+        if (!open) return
+        const pill = pillRef.current
+        const panel = panelRef.current
+        if (!pill || !panel) return
+        const trigger = pill.getBoundingClientRect()
+        const natural = panel.getBoundingClientRect()
+        const viewport = viewportSize()
+        const maxWidth = Math.min(PANEL_MAX_WIDTH, Math.max(0, viewport.width - PANEL_INSET * 2))
+        const width = Math.min(Math.max(natural.width, Math.min(PANEL_MIN_WIDTH, maxWidth)), maxWidth)
+        if (Math.abs(width - natural.width) > 0.5) panel.style.width = `${width}px`
+        const naturalWidth = width
+        const naturalHeight = panel.getBoundingClientRect().height
+        const placement = computePanelPlacement(trigger, { width: naturalWidth, height: naturalHeight }, viewport, overlayTopInset())
+        setGeometry({ ...placement, naturalWidth, naturalHeight })
+      }, [open])
+
+      // A viewport resize re-derives the anchored position from the stored
+      // natural size; value updates alone never trigger this.
+      React.useEffect(() => {
+        if (!open) return undefined
+        const onResize = () => {
+          const pill = pillRef.current
+          setGeometry(current => {
+            if (current === null || pill === null) return current
+            const placement = computePanelPlacement(
+              pill.getBoundingClientRect(),
+              { width: current.naturalWidth, height: current.naturalHeight },
+              viewportSize(),
+              overlayTopInset(),
+            )
+            return { ...placement, naturalWidth: current.naturalWidth, naturalHeight: current.naturalHeight }
+          })
+        }
+        window.addEventListener('resize', onResize)
+        return () => { window.removeEventListener('resize', onResize) }
+      }, [open])
+
       // A Session without billed usage shows no pill at all: there is nothing to price.
       if (spend === undefined || spend === null || spend.tokens.total === 0) return null
 
@@ -396,6 +614,12 @@ window.__ModuleLoader__.load({
       const moneyTokens = (money, tokens) => t('value.moneyTokens', { cost: money, tokens })
       const tokensOnly = tokens => t('value.tokensOnly', { tokens })
       const cacheHit = formatCacheHit(spend.tokens.cacheRead, spend.tokens.input + spend.tokens.cacheRead + spend.tokens.cacheWrite)
+
+      const rateStatus = describeStatus(spend.schedule, now, t)
+      const status = rateStatus === null ? null : h('div', { className: 'dsh-spend-status', 'data-tier': rateStatus.tier },
+        h('span', { className: 'dsh-spend-status-dot', 'aria-hidden': true }),
+        h('span', null, rateStatus.text),
+      )
 
       const spendRows = priced
         ? rows([
@@ -456,8 +680,25 @@ window.__ModuleLoader__.load({
           total: spend.modelsTotal,
         })))
       }
-      if (priced) notes.push(h('div', { className: 'dsh-spend-note', key: 'estimate' }, t('note.estimate')))
-      if (priced && spend.peakRates) notes.push(h('div', { className: 'dsh-spend-note', key: 'peak' }, t('note.peak')))
+      if (priced) {
+        notes.push(h('div', { className: 'dsh-spend-note', key: 'estimate' }, t('note.estimate')))
+      }
+      if (priced && spend.costOffPeak > 0 && spend.schedule?.enabled) {
+        const discount = spend.schedule.discount
+        const saved = discount < 1 ? spend.costOffPeak * (discount / (1 - discount)) : 0
+        const savedText = formatCost(saved, spend.currencySymbol, spend.decimals)
+        if (saved > 0 && !savedText.startsWith('<')) {
+          notes.push(h('div', { className: 'dsh-spend-note', key: 'offPeakSaved' }, t('note.offPeakSaved', { amount: savedText })))
+        }
+      }
+      if (priced) {
+        const rates = spend.rates ?? null
+        if (rates !== null && rates.source === 'deepseek' && rates.updatedAt !== null) {
+          notes.push(h('div', { className: 'dsh-spend-note', key: 'rates' }, t('note.rates', { when: formatAge(rates.updatedAt, now, t) })))
+        } else {
+          notes.push(h('div', { className: 'dsh-spend-note', key: 'ratesBundled' }, t('note.ratesBundled')))
+        }
+      }
 
       // The tilde marks an estimate on the resting reading; the dialog explains
       // the same figure in its note, so its rows and title stay plain.
@@ -468,15 +709,30 @@ window.__ModuleLoader__.load({
         ? t('pill.spendTitle', { cost })
         : t('pill.tokensTitle', { tokens: formatExactTokens(spend.tokens.total) })
 
-      return h('span', { ref: rootRef, className: 'dsh-spend-anchor', style: { anchorName } },
+      const panelStyle = geometry === null
+        ? { visibility: 'hidden', top: 0, left: 0 }
+        : {
+          visibility: 'visible',
+          top: geometry.top,
+          left: geometry.left,
+          width: geometry.width,
+          height: geometry.height,
+        }
+
+      return h('span', { className: 'dsh-spend-anchor' },
         h('button', {
+          ref: pillRef,
           type: 'button',
           className: 'dsh-spend-pill',
           'aria-haspopup': 'dialog',
           'aria-expanded': open,
           'aria-label': accessible,
           title: accessible,
-          onClick: () => { setOpen(!open) },
+          onClick: () => {
+            setGeometry(null)
+            setNow(Date.now())
+            setOpen(!open)
+          },
         },
           h(SpendGlyph),
           h('span', { className: 'dsh-spend-label' }, headline),
@@ -486,18 +742,24 @@ window.__ModuleLoader__.load({
             ref: panelRef,
             className: 'dsh-spend-panel',
             role: 'dialog',
+            tabIndex: -1,
             'aria-label': t('dialog.title'),
-            style: { positionAnchor: anchorName },
+            style: panelStyle,
           },
-            h('div', { className: 'dsh-spend-title' },
-              h('span', { className: 'dsh-spend-title-label' }, h(SpendGlyph), t('dialog.title')),
-              h('span', { className: 'dsh-spend-title-value' }, dialogValue),
+            h('div', { className: 'dsh-spend-panel-head' },
+              h('div', { className: 'dsh-spend-title' },
+                h('span', { className: 'dsh-spend-title-label' }, h(SpendGlyph), t('dialog.title')),
+                h('span', { className: 'dsh-spend-title-value' }, dialogValue),
+              ),
+              status,
             ),
-            h('div', { className: 'dsh-spend-rule' }),
-            h(Section, { title: priced ? t('section.spend') : t('section.tokens') }, spendRows),
-            h(Section, { title: t('section.activity') }, rows(activityPairs)),
-            modelRows === null ? null : h(Section, { title: t('section.models') }, modelRows),
-            notes,
+            h('div', { className: 'dsh-spend-panel-body' },
+              h('div', { className: 'dsh-spend-rule' }),
+              h(Section, { title: priced ? t('section.spend') : t('section.tokens') }, spendRows),
+              h(Section, { title: t('section.activity') }, rows(activityPairs)),
+              modelRows === null ? null : h(Section, { title: t('section.models') }, modelRows),
+              notes,
+            ),
           ),
           document.body,
         ) : null,
@@ -506,6 +768,18 @@ window.__ModuleLoader__.load({
 
     return {
       inject: ['slots', 'locale'],
+      // Pure helpers exposed for the repository's tests only; the DSH loader
+      // ignores fields other than the plugin face.
+      __test: {
+        tierAt,
+        msUntilTierChange,
+        describeStatus,
+        formatRemaining,
+        formatAge,
+        formatCost,
+        computePanelPlacement,
+        dictionaries: { EN, ZH },
+      },
       apply(ctx) {
         ctx.effect(() => {
           const style = document.createElement('style')
