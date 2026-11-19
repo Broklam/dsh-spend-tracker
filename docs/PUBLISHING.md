@@ -8,81 +8,102 @@ DeepSeek Harness has no central plugin store. There are three places a plugin ca
 
 Profiles matter for every install command below: the Desktop app runs the `desktop` profile, and `dsh web` runs the `web` profile. The hub's install command uses the `web` profile, so the submission text keeps that form, while Desktop users install from **Plugins → Add plugin** or with `dsh plugin --profile desktop add …`.
 
+## Current status
+
+| Item | Value |
+| --- | --- |
+| npm package | `dsh-spend-tracker@0.2.2` — published and public |
+| One-step install | `dsh plugin --profile web add dsh-spend-tracker` |
+| Hub listing | <https://dsh-plugin.org/plugins/broklam/dsh-spend-tracker> |
+| Hub category | **Models & Reasoning** |
+| License | MIT |
+| Compatibility | DeepSeek Harness `>=0.2.2-rc.1 <0.3.0`; `web` and `desktop` profiles |
+
+The README carries the listing badge, the category, the copyable install command, both screenshots, the permissions note, and the compatibility table.
+
 ## 1. Publish to npm
 
-The package name `dsh-spend-tracker` is unclaimed, and the package needs no build step. The published files are `index.js`, `projection.js`, `pricing.js`, `client.js`, `cordis.patch.yml`, `locale/*.json`, `icon.svg`, the README and CHANGELOG, and `docs`/`marketplace`, as listed in `files`. You need Node.js 22 or newer with the npm CLI.
+The package name `dsh-spend-tracker` is claimed by this project, and the package needs no build step. The published files are `index.js`, `projection.js`, `pricing.js`, `client.js`, `cordis.patch.yml`, `locale/*.json`, `icon.svg`, the README and CHANGELOG, and `docs`/`marketplace`, as listed in `files`. You need Node.js 22 or newer with the npm CLI.
+
+The release that is live now is `0.2.2`:
 
 ```sh
-npm login
-npm publish
+npm view dsh-spend-tracker version
 ```
 
-`publishConfig.access` is `public`, and the package is not private. Verify the result with `npm view dsh-spend-tracker version`.
+To ship the changes currently on `main` (the agent-team reading and the model-count fix), cut the next release:
 
-Once published, the npm install works as written:
+```sh
+npm version patch --no-git-tag-version    # bump package.json
+VERSION=$(node -p "require('./package.json').version")
+# edit CHANGELOG.md: move [Unreleased] under the new version with today's date
+git add package.json CHANGELOG.md
+git commit -m "Release v$VERSION"
+npm publish
+git tag "v$VERSION"
+git push origin main "v$VERSION"
+gh release create "v$VERSION" --generate-notes
+```
+
+`publishConfig.access` is `public`, and the package is not private. Publishing prompts for the npm two-factor code; a 403 `two-factor authentication` error means the one-time code was missing or stale, not that the package name is taken.
+
+After the publish, the npm install works as written:
 
 ```sh
 dsh plugin --profile web add dsh-spend-tracker      # dsh web
 dsh plugin --profile desktop add dsh-spend-tracker  # Desktop, from a terminal
 ```
 
-To cut a release, bump `version` in [`package.json`](../package.json), update [`CHANGELOG.md`](../CHANGELOG.md), commit, then publish and tag. These commands need the GitHub CLI (`gh`) in addition to npm:
+The package's embedded README is captured at publish time, so publish after editing the README.
 
-```sh
-VERSION=$(node -p "require('./package.json').version")
-npm publish
-git tag "v$VERSION"
-git push origin "v$VERSION"
-gh release create "v$VERSION" --generate-notes
-```
+## 2. The DSH Plugin Hub listing
 
-## 2. Submit to the DSH Plugin Hub
-
-The hub crawls public repositories and generates a listing. Requirements, all already met by this repository:
+The hub crawls public repositories and generates a listing. Requirements, all met and verified by the live listing:
 
 - [x] The repository is public.
 - [x] The GitHub topic `dsh-plugin` is set.
-- [x] `package.json` sits at the repository root with the package name and version.
-- [x] The README includes a copyable install command.
+- [x] `package.json` sits at the repository root with the package name and version, and the matching npm package exists.
+- [x] The README includes the copyable install command `dsh plugin --profile web add dsh-spend-tracker`.
 - [x] The plugin exports `apply(ctx)` (`index.js`).
 - [x] A license is declared (MIT).
-- [x] Compatibility, permissions, and limitations are documented in the README.
+- [x] The README states the hub category (**Models & Reasoning**), the supported profiles, permissions, compatibility, and limitations, and shows screenshots of the plugin in action.
 
-Two actions complete the submission:
+The listing was created on 2026-11-17 and is verified. The site re-syncs metadata, README changes, and version info automatically, while the in-app **DSH Plugin Hub** catalog carries an npm package only after the hub's own verification, so keep the npm publish current and re-check after each release.
 
-1. Keep the npm publish from step 1 current. Without an npm package the site still lists the repository, but one-command installs by package name are not available from **Plugins → Add plugin**.
-2. Open a submission issue in [dshplugin/dsh-plugin-hub](https://github.com/dshplugin/dsh-plugin-hub/issues/new) to have the listing reviewed, using the template from [dsh-plugin.org/submit](https://dsh-plugin.org/submit). Use this issue title:
+To correct or re-request the listing, open an issue in [dshplugin/dsh-plugin-hub](https://github.com/dshplugin/dsh-plugin-hub/issues/new) with the template below.
+
+Title:
 
 ```text
 [Plugin submission] Broklam/dsh-spend-tracker — see what the open chat has spent, broken down by tokens, cache, activity, and model
 ```
 
-and this issue body:
+Body:
 
 ```markdown
 ### Repository
 https://github.com/Broklam/dsh-spend-tracker
 
 ### One-line value
-Estimates what the open chat has spent, using DeepSeek's peak or off-peak rate for each request, and breaks it down by token bucket, cache hit, activity, and model.
+Adds an estimated spend reading to the DeepSeek Harness composer, priced at DeepSeek's published peak or off-peak rate, with a breakdown of where the open chat's money went.
 
 ### Category
-UI & Experience
+Models & Reasoning
 
 ### Install command
 dsh plugin --profile web add dsh-spend-tracker
 
 ### Compatibility
-DeepSeek Harness >= 0.2.2-rc.1 < 0.3.0; Desktop and web profiles; no runtime dependencies.
+DeepSeek Harness >= 0.2.2-rc.1 < 0.3.0; web and desktop profiles; no runtime dependencies.
 
 ### License
 MIT
 
 ### Screenshots / demo
-Example panel output and the rendering rules are in the README. Add a screenshot of the reading under the input box before submitting.
+The composer reading and the open breakdown panel are in the README (docs/images/composer-dock.png and docs/images/session-spend-panel.png).
 
 ### Notes
-Local estimates only. The sole network request is a background HTTPS GET for DeepSeek's public pricing page (no credentials, no session data, no telemetry); prices come from that page when it is reachable, and otherwise from the bundled table or the last table it fetched. Each request is priced at the published peak or off-peak rate for the time its usage settled.
+Local estimates only. The sole network request is a background HTTPS GET for DeepSeek's public pricing page (no credentials, no session data, no telemetry); prices come from that page when it is reachable, and otherwise from the bundled table or the last table it fetched. Each request is priced at the published peak or off-peak rate for the time its usage settled. The estimate covers this chat and its local subagent conversations; provider-billed calls that never record usage in the session log (session-title generation and the web-search provider's own model turn) are not included.
 
 ### Pre-submission checklist
 - [x] Repository is public
@@ -92,10 +113,10 @@ Local estimates only. The sole network request is a background HTTPS GET for Dee
 - [x] Repository root includes a `package.json`
 ```
 
-After listing, the detail page is `https://dsh-plugin.org/plugins/Broklam/dsh-spend-tracker`. Add the badge to the README:
+After a successful listing, the detail page is <https://dsh-plugin.org/plugins/broklam/dsh-spend-tracker>. The badge below is already in the README and needs no further edit:
 
 ```markdown
-[![Listed on dsh-plugin.org](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/plugins/Broklam/dsh-spend-tracker)
+[![Listed on dsh-plugin.org](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/plugins/broklam/dsh-spend-tracker)
 ```
 
 ## 3. Publish a DSH plugin index

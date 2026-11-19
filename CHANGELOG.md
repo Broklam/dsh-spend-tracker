@@ -15,6 +15,11 @@ All notable changes to this project are documented here. The format follows [Kee
 - The estimate's provenance, the off-peak saving, and the price-table freshness now sit behind a collapsed **About this estimate** row, so the panel opens on the figures and the notes stay out of the way until opened.
 - The panel title names the figure as an estimate: **Session spend (estimated)**.
 - The README shows the composer reading and the open panel as screenshots, replacing the text example.
+- The README and publishing guide now state the hub category, the one-step npm install, the live dsh-plugin.org listing, and the auxiliary provider calls the estimate cannot see.
+
+### Fixed
+
+- The team panel's model count now counts each billed route once across the session and its subagents, so a team that shares one model no longer shows a misleading "Showing 1 of N models" note.
 
 ## [0.2.2] — 2026-11-16
 

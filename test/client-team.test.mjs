@@ -160,7 +160,8 @@ test('the combined view sums spend, tokens, calls, and models across the team', 
   assert.equal(combined.view.calls, 4)
   assert.equal(combined.view.pricedCalls, 4)
   assert.deepEqual(combined.view.tokens, { input: 130, cacheRead: 0, cacheWrite: 0, output: 30, reasoning: 0, total: 160 })
-  assert.equal(combined.view.modelsTotal, 4)
+  // Two routes, not four: the same route billed in several conversations is one model.
+  assert.equal(combined.view.modelsTotal, 2)
   assert.deepEqual(combined.view.models.map(row => row.route), ['demo/pro', 'demo/flash'])
   assert.equal(combined.view.models[0].cost, 0.35)
   assert.equal(combined.view.models[0].tokens.total, 30)
@@ -207,6 +208,30 @@ test('the merged model table keeps its total and caps the rows', () => {
   assert.equal(combined.view.models.length, team.MAX_AGENT_ROWS)
   assert.equal(combined.view.modelsTotal, rows.length)
   assert.equal(combined.view.models[0].route, `demo/model-${rows.length - 1}`)
+})
+
+test('the model total counts each route once across the team', () => {
+  const own = spendView({ cost: 0.1, tokens: { total: 10 }, calls: 1, models: [modelRow('demo/flash', { cost: 0.1, tokens: 10 })] })
+  const combined = team.combineSpend(own, [
+    { id: 'a', parentId: 'root', label: null, name: null, view: spendView({ cost: 0.2, tokens: { total: 20 }, calls: 1, models: [modelRow('demo/flash', { cost: 0.2, tokens: 20 })] }) },
+    { id: 'b', parentId: 'root', label: null, name: null, view: spendView({ cost: 0.3, tokens: { total: 30 }, calls: 1, models: [modelRow('demo/pro', { cost: 0.3, tokens: 30 })] }) },
+  ])
+  assert.equal(combined.view.modelsTotal, 2)
+  assert.deepEqual(combined.view.models.map(row => row.route), ['demo/flash', 'demo/pro'])
+})
+
+test('the model total keeps routes a capped view hides out of its row list', () => {
+  const own = spendView({ cost: 0.1, tokens: { total: 10 }, calls: 1, models: [modelRow('demo/shared', { cost: 0.1, tokens: 10 })] })
+  const rows = []
+  for (let index = 0; index < team.MAX_AGENT_ROWS; index += 1) {
+    rows.push(modelRow(`demo/model-${index}`, { cost: index + 1, tokens: index + 1 }))
+  }
+  const combined = team.combineSpend(own, [
+    { id: 'member', parentId: 'root', label: null, name: null, view: spendView({ cost: 1, tokens: { total: 1 }, calls: 1, models: rows, modelsTotal: rows.length + 2 }) },
+  ])
+  // One own route plus the member's listed routes plus its two hidden routes.
+  assert.equal(combined.view.modelsTotal, rows.length + 3)
+  assert.equal(combined.view.models.length, team.MAX_AGENT_ROWS)
 })
 
 test('the member label prefers the catalog label, then the agent name, then the title', () => {

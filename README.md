@@ -2,8 +2,9 @@
 
 [![CI](https://github.com/Broklam/dsh-spend-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/Broklam/dsh-spend-tracker/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Listed on dsh-plugin.org](https://dsh-plugin.org/badges/listed.svg)](https://dsh-plugin.org/plugins/broklam/dsh-spend-tracker)
 
-Estimate what the chat you have open has spent so far, and where that spend went.
+Adds an estimated spend reading to the DeepSeek Harness composer, priced at DeepSeek's published peak or off-peak rate, with a breakdown of where the open chat's money went.
 
 Session spend is a [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin. It adds one estimated spend reading to the composer statistics row under the input box, beside the built-in turns/steps and token readings. Click the reading for a breakdown by token bucket, cache hit, activity count, model, and subagent.
 
@@ -12,6 +13,8 @@ When the chat works with **agent teamwork**, the reading counts the whole team: 
 ![The composer footer in DeepSeek Harness, with the estimated spend reading ≈$0.807 in the statistics row beside turns, tokens, cache hit, and context use](docs/images/composer-dock.png)
 
 The estimate follows DeepSeek's published prices: each request is priced at the peak or off-peak rate for the time its usage settled, the panel names the rate that applies right now, and the price table refreshes itself from DeepSeek's published pricing page.
+
+> **Hub category** Models & Reasoning · **License** MIT · **Profiles** web and desktop · **DSH** `>=0.2.2-rc.1 <0.3.0` · **Network** one background HTTPS GET for the public pricing page; no account, telemetry, or session content leaves the machine.
 
 ## What it shows
 
@@ -35,38 +38,35 @@ A row appears when it has data; turns, steps, and tool calls are always shown. A
 
 ## Install
 
-Requirements: DeepSeek Harness 0.2.2-rc.1 up to, but not including, 0.3.0, with the web UI. The Desktop app and `dsh web` both include it.
-
-### Desktop app
-
-1. Open **Plugins**.
-2. Choose **Add plugin** and paste this package's absolute directory path.
-3. Turn the **Session spend** row on.
-
-The Desktop app runs the `desktop` profile. To install from a terminal instead, name that profile:
+Requirements: DeepSeek Harness 0.2.2-rc.1 up to, but not including, 0.3.0, with the web UI. The package is published to npm as `dsh-spend-tracker`, ships plain JavaScript, and needs no build step or install-build permission. It installs in one step:
 
 ```sh
-dsh plugin --profile desktop add dsh-spend-tracker                                  # npm, once published
-dsh plugin --profile desktop add github:Broklam/dsh-spend-tracker                   # this repository
-dsh plugin --profile desktop add ./dsh-spend-tracker                                # a local clone
+dsh plugin --profile web add dsh-spend-tracker
 ```
 
-Once the package is published to npm, **Plugins → Add plugin** installs it by package name without a terminal.
-
-### Web profile (CLI)
+`web` is the profile `dsh web` runs. The Desktop app runs the `desktop` profile:
 
 ```sh
-# npm, once published
-dsh plugin --profile web add dsh-spend-tracker
+dsh plugin --profile desktop add dsh-spend-tracker
+```
 
-# this repository
+In the Desktop app you can also open **Plugins → Add plugin**, paste the package name, and turn the **Session spend** row on.
+
+### Install from this repository
+
+```sh
+# web profile, from GitHub
 dsh plugin --profile web add github:Broklam/dsh-spend-tracker
 
-# a local clone
+# web profile, from a local clone
 dsh plugin --profile web add ./dsh-spend-tracker
+
+# Desktop profile variants
+dsh plugin --profile desktop add github:Broklam/dsh-spend-tracker
+dsh plugin --profile desktop add ./dsh-spend-tracker
 ```
 
-The package ships plain JavaScript, so no build step or install-build permission is involved. After installing, open a chat with at least one completed model call; the reading appears after the first settled response. Disable the row to remove the reading and stop the statistics.
+After installing, open a chat with at least one completed model call; the reading appears after the first settled response. Disable the row to remove the reading and stop the statistics. No account or API key is required, and no runtime dependency is installed.
 
 ## Configure prices
 
@@ -163,7 +163,7 @@ Refreshed prices apply when a session's value is next recomputed — normally it
 - Subagent conversations count once each. The panel finds them through the same `subagentCatalog` projection the Subagents menu uses, including nested children, and skips external tasks that have no local conversation. A finished subagent whose projections are not loaded (after a page reload, for example) is read from the Host once when the chat opens.
 - The rate table is never folded into state, so a refreshed or edited price reprices the whole session the next time its value is read.
 
-This is an estimate, not an invoice. Search and fetch calls, file parsing, speech, subscription plans, bonus credit, and currency conversion are not modelled.
+This is an estimate, not an invoice. The provider also bills some calls whose usage never lands in the session log — session-title generation and the web-search provider's own model turn — and the estimate cannot see those. Search and fetch API fees, file parsing, speech, subscription plans, bonus credit, and currency conversion are not modelled at all.
 
 ## Privacy
 
@@ -206,7 +206,7 @@ The tests cover peak and off-peak classification (including weekends, holidays, 
 ## Marketplaces
 
 - **DSH Discover tab**: this repository publishes a format-1 plugin index at `https://broklam.github.io/dsh-spend-tracker/index.json`. Open **Plugins**, switch on **Custom plugin indexes** under **Experimental plugins**, then choose **Discover → Add index source** and paste that URL. The index lives in [`marketplace/index.json`](marketplace/index.json) and pins each listed release to its commit.
-- **DSH Plugin Hub** ([dsh-plugin.org](https://dsh-plugin.org)): the community directory indexes public repositories tagged `dsh-plugin`. After the npm publish, install by package name from **Plugins → Add plugin**, or add this index source under Discover.
+- **DSH Plugin Hub** ([dsh-plugin.org](https://dsh-plugin.org)): listed as **Models & Reasoning** at [dsh-plugin.org/plugins/broklam/dsh-spend-tracker](https://dsh-plugin.org/plugins/broklam/dsh-spend-tracker). The community directory indexes public repositories tagged `dsh-plugin`; install the published package by name from **Plugins → Add plugin**, or add this index source under Discover.
 
 [docs/PUBLISHING.md](docs/PUBLISHING.md) covers both submission paths step by step, including the npm release that makes the package available from the Plugins page.
 

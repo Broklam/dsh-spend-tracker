@@ -613,8 +613,12 @@ window.__ModuleLoader__.load({
       const tokens = {}
       for (const field of TOKEN_FIELDS) tokens[field] = own.tokens[field]
       const models = new Map()
+      const seenRoutes = new Set()
+      let hiddenModels = 0
       const addModels = view => {
-        for (const model of Array.isArray(view.models) ? view.models : []) {
+        const rows = Array.isArray(view.models) ? view.models : []
+        for (const model of rows) {
+          seenRoutes.add(model.route)
           const merged = models.get(model.route)
           if (merged === undefined) {
             models.set(model.route, { ...model, tokens: { ...model.tokens } })
@@ -624,9 +628,12 @@ window.__ModuleLoader__.load({
           merged.calls += model.calls
           for (const field of TOKEN_FIELDS) merged.tokens[field] += model.tokens[field]
         }
+        // A view caps its own row list, so the routes it hides are unknown.
+        // Counting them as additional routes keeps the "of N models" note from
+        // under-reporting on a session that billed more routes than it lists.
+        if (view.modelsTotal > rows.length) hiddenModels += view.modelsTotal - rows.length
       }
       addModels(own)
-      let modelsTotal = own.modelsTotal
       let cost = 0
       let memberTokens = 0
       let calls = 0
@@ -637,9 +644,9 @@ window.__ModuleLoader__.load({
         cost += view.cost
         memberTokens += view.tokens.total
         calls += view.calls
-        modelsTotal += view.modelsTotal
         addModels(view)
       }
+      const modelsTotal = seenRoutes.size + hiddenModels
       const merged = [...models.values()].sort((left, right) => right.cost - left.cost
         || right.tokens.total - left.tokens.total
         || (left.route < right.route ? -1 : left.route > right.route ? 1 : 0))
