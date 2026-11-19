@@ -12,7 +12,7 @@ Profiles matter for every install command below: the Desktop app runs the `deskt
 
 | Item | Value |
 | --- | --- |
-| npm package | `dsh-spend-tracker@0.2.2` — published and public |
+| npm package | `dsh-spend-tracker@0.2.3` — published and public |
 | One-step install | `dsh plugin --profile web add dsh-spend-tracker` |
 | Hub listing | <https://dsh-plugin.org/plugins/broklam/dsh-spend-tracker> |
 | Hub category | **Models & Reasoning** |
@@ -25,13 +25,13 @@ The README carries the listing badge, the category, the copyable install command
 
 The package name `dsh-spend-tracker` is claimed by this project, and the package needs no build step. The published files are `index.js`, `projection.js`, `pricing.js`, `client.js`, `cordis.patch.yml`, `locale/*.json`, `icon.svg`, the README and CHANGELOG, and `docs`/`marketplace`, as listed in `files`. You need Node.js 22 or newer with the npm CLI.
 
-The release that is live now is `0.2.2`:
+The release that is live now is `0.2.3`; it ships the agent-team reading and the merged model-count fix:
 
 ```sh
 npm view dsh-spend-tracker version
 ```
 
-To ship the changes currently on `main` (the agent-team reading and the model-count fix), cut the next release:
+To cut the next release:
 
 ```sh
 npm version patch --no-git-tag-version    # bump package.json
@@ -45,7 +45,9 @@ git push origin main "v$VERSION"
 gh release create "v$VERSION" --generate-notes
 ```
 
-`publishConfig.access` is `public`, and the package is not private. Publishing prompts for the npm two-factor code; a 403 `two-factor authentication` error means the one-time code was missing or stale, not that the package name is taken.
+Then add the new version to [`marketplace/index.json`](../marketplace/index.json) with an `npm` source and the publish timestamp in Unix seconds, commit it, and push. The Pages workflow redeploys the index for the Discover tab.
+
+`publishConfig.access` is `public`, and the package is not private. A granular npm token with publish permission (the kind this project uses) publishes without a one-time code; a classic token prompts for the npm two-factor code, and a 403 `two-factor authentication` error means that code was missing or stale, not that the package name is taken.
 
 After the publish, the npm install works as written:
 
