@@ -5,7 +5,9 @@
 
 Estimate what the chat you have open has spent so far, and where that spend went.
 
-Session spend is a [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin. It adds one estimated spend reading to the composer statistics row under the input box, beside the built-in turns/steps and token readings. Click the reading for a breakdown by token bucket, cache hit, activity count, and model.
+Session spend is a [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin. It adds one estimated spend reading to the composer statistics row under the input box, beside the built-in turns/steps and token readings. Click the reading for a breakdown by token bucket, cache hit, activity count, model, and subagent.
+
+When the chat works with **agent teamwork**, the reading counts the whole team: every local subagent conversation the chat spawned — direct or nested — adds its own provider-reported spend to the estimate, and each member's share is listed in the panel. The team total updates as members settle, without waiting for the lead's next turn.
 
 ![The composer footer in DeepSeek Harness, with the estimated spend reading ≈$0.807 in the statistics row beside turns, tokens, cache hit, and context use](docs/images/composer-dock.png)
 
@@ -20,13 +22,14 @@ Clicking the reading opens a panel with:
 | Section | Rows |
 | --- | --- |
 | Rate status | Peak or off-peak right now, the off-peak discount when it applies, and when the rate next changes; hidden when `offPeak: false` |
-| Estimated spend | Total, input, cache read, cache write, output, reasoning, cache hit |
-| Activity | Turns, steps, tool calls, tool errors, retries, compactions |
-| By model | Spend and tokens per model, when more than one was billed |
+| Estimated spend | This session and Subagents when a team exists, then the combined Total, input, cache read, cache write, output, reasoning, cache hit |
+| Activity | Turns, steps, tool calls, tool errors, retries, compactions; counts this session only |
+| By model | Spend and tokens per model, when more than one was billed across the session and its team |
+| By subagent | Spend and tokens per subagent conversation, when the chat has a team |
 
-Warnings stay visible at the bottom of the panel: unpriced usage, or a truncated model list. Everything else — that the figure is an estimate rather than a bill, how much off-peak rates saved, and how fresh the price table is — sits behind a collapsed **About this estimate** row, so it stays out of the way until you open it.
+Warnings stay visible at the bottom of the panel: unpriced usage, a truncated model list, or a truncated subagent list. Everything else — that the figure is an estimate rather than a bill, how much off-peak rates saved, and how fresh the price table is — sits behind a collapsed **About this estimate** row, so it stays out of the way until you open it.
 
-A row appears when it has data; turns, steps, and tool calls are always shown. Escape, a click outside, or activating another stats control closes the panel. The panel is measured once when it opens and stays put while values update, so a busy session cannot move it; long content scrolls inside it, with the title and rate status kept above the scroll area.
+A row appears when it has data; turns, steps, and tool calls are always shown. A chat without subagents keeps the single Total row it always had. Escape, a click outside, or activating another stats control closes the panel. The panel is measured once when it opens and stays put while values update, so a busy session cannot move it; long content scrolls inside it, with the title and rate status kept above the scroll area.
 
 ![The open panel: Session spend (estimated), the current off-peak rate, estimated spend and activity rows, and a collapsed About this estimate row](docs/images/session-spend-panel.png)
 
@@ -156,7 +159,8 @@ Refreshed prices apply when a session's value is next recomputed — normally it
 - Usage comes from the provider's own accounting on each settled assistant message. A retried attempt stays billable: the attempt that streamed before the retry keeps its tokens, and the retried settlement adds, which matches the built-in token counter. Compaction summaries count as their own calls.
 - Spend is `tokens × price ÷ 1,000,000` for each of input, cache read, cache write, and output, summed over the models the session used. The price is the peak or off-peak rate for that usage settlement's UTC time.
 - Reasoning tokens are reported separately and **not** charged: providers bill them inside output tokens.
-- A fork inherits its parent's spend prefix, the same way the built-in token counter does.
+- A fork inherits its parent's spend prefix, the same way the built-in token counter does. A forked subagent therefore contributes its inherited prefix to the team total as part of its own conversation, exactly as the built-in child token reading shows it.
+- Subagent conversations count once each. The panel finds them through the same `subagentCatalog` projection the Subagents menu uses, including nested children, and skips external tasks that have no local conversation. A finished subagent whose projections are not loaded (after a page reload, for example) is read from the Host once when the chat opens.
 - The rate table is never folded into state, so a refreshed or edited price reprices the whole session the next time its value is read.
 
 This is an estimate, not an invoice. Search and fetch calls, file parsing, speech, subscription plans, bonus credit, and currency conversion are not modelled.
@@ -172,22 +176,22 @@ The plugin reads the configured pricing page (DeepSeek's by default) over HTTPS 
 | DeepSeek Harness | `>=0.2.2-rc.1 <0.3.0` (declared in `engines.dsh`) |
 | Profiles | Desktop and web |
 | UI surfaces | Composer dock entry `spend` in `conversation.composer.dock` |
-| Dependencies | None at runtime; React and React DOM come from the app |
+| Dependencies | None at runtime; React and React DOM come from the app. The team total uses the Session controller's projection reads and falls back to the live cuts already in the page when they are absent |
 | Permissions | Outbound HTTPS GET to the configured pricing URL (default `api-docs.deepseek.com`); no tools, no shell, no files outside the profile |
 | Disable | Turn the row off; the reading disappears and the statistics stop |
 
 ## How it works
 
 ```text
-session events ──► sessionSpend projection (Host) ──► wire view ──► composer dock reading + panel (Browser)
-                        ▲
-DeepSeek pricing page ──┘  (pricing.js parses the rate table and peak windows)
+session events ─────────► sessionSpend projection (Host) ──► wire view ──┐
+subagent session events ► their sessionSpend wire views ────────────────┼──► composer dock reading + panel (Browser)
+DeepSeek pricing page ──► price refresh (index.js + pricing.js) ────────┘   (reprices every wire view)
 ```
 
 - [`index.js`](index.js) registers the `sessionSpend` session projection and the background price refresh.
 - [`projection.js`](projection.js) is the pure fold: usage events in, per-tier token, call, and activity totals out; spend is derived when the value is rendered.
 - [`pricing.js`](pricing.js) holds DeepSeek's peak windows, the bundled holiday calendar, and the parser for the published pricing markdown.
-- [`client.js`](client.js) registers the reading and its panel, with the live rate-status line and English and Simplified Chinese copy.
+- [`client.js`](client.js) registers the reading and its panel, with the live rate-status line, the team total over the chat's subagent projections, and English and Simplified Chinese copy.
 - Projection state is checkpointed and versioned, validated on restore, and excluded from session summaries, so the sidebar list carries nothing extra.
 
 ## Development
@@ -197,7 +201,7 @@ node --check index.js && node --check projection.js && node --check pricing.js &
 node --test test/*.test.mjs
 ```
 
-The tests cover peak and off-peak classification (including weekends, holidays, and window boundaries), the pricing-page parser and its fallbacks, retry bills, per-tier replacement, per-model attribution, unpriced models, compaction calls, activity counters, live repricing, the refresh registration and its fallbacks, the browser placement and status helpers, state validation, the wire contract, and that the English and Chinese copy tables stay in sync. They run against a fixture of the pricing page fetched on 2026-11-16, so a layout change on DeepSeek's side shows up as a parser warning instead of a silently mispriced table. There are no runtime dependencies to install.
+The tests cover peak and off-peak classification (including weekends, holidays, and window boundaries), the pricing-page parser and its fallbacks, retry bills, per-tier replacement, per-model attribution, unpriced models, compaction calls, activity counters, live repricing, the refresh registration and its fallbacks, the browser placement and status helpers, subagent team discovery and the combined team view (including nested members, external tasks, model merging, and the row cap), state validation, the wire contract, and that the English and Chinese copy tables stay in sync. They run against a fixture of the pricing page fetched on 2026-11-16, so a layout change on DeepSeek's side shows up as a parser warning instead of a silently mispriced table. There are no runtime dependencies to install.
 
 ## Marketplaces
 

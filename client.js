@@ -14,6 +14,7 @@ window.__ModuleLoader__.load({
     /** English dictionary; keys are flat and placeholders use `{name}`. */
     const EN = {
       'pill.spendTitle': 'Session spend (estimated): {cost}',
+      'pill.spendTeamTitle': 'Session spend (estimated): {cost}, including {count} subagents',
       'pill.tokensTitle': 'Session tokens: {tokens}; no price is configured for the models it used',
       'pill.tokens': '{tokens} tokens',
       'dialog.title': 'Session spend (estimated)',
@@ -32,7 +33,10 @@ window.__ModuleLoader__.load({
       'section.tokens': 'Tokens',
       'section.activity': 'Activity',
       'section.models': 'By model',
+      'section.subagents': 'By subagent',
       'row.total': 'Total',
+      'row.thisSession': 'This session',
+      'row.subagents': 'Subagents ({count})',
       'row.input': 'Input',
       'row.cacheRead': 'Cache read',
       'row.cacheWrite': 'Cache write',
@@ -49,6 +53,8 @@ window.__ModuleLoader__.load({
       'value.tokensOnly': '{tokens}',
       'note.unpriced': 'Unpriced model usage — calls: {calls}, tokens: {tokens}. Add that model\'s rates under pricing in cordis.patch.yml.',
       'note.models': 'Showing {shown} of {total} models.',
+      'note.subagents': 'Showing {shown} of {total} subagents.',
+      'note.team': 'The estimate includes {count} subagent conversations; activity counts this session.',
       'note.about': 'About this estimate',
       'note.estimate': 'Estimated from DeepSeek\'s prices, not a billed amount.',
       'note.offPeakSaved': 'Off-peak rates lowered this estimate by about {amount}.',
@@ -63,6 +69,7 @@ window.__ModuleLoader__.load({
     /** Simplified Chinese dictionary of the same keys. */
     const ZH = {
       'pill.spendTitle': '本次会话花费（估算）：{cost}',
+      'pill.spendTeamTitle': '本次会话花费（估算）：{cost}，含 {count} 个子智能体',
       'pill.tokensTitle': '本次会话 {tokens} tokens；所用模型未配置价格',
       'pill.tokens': '{tokens} tokens',
       'dialog.title': '会话花费（估算）',
@@ -81,7 +88,10 @@ window.__ModuleLoader__.load({
       'section.tokens': 'Token 数',
       'section.activity': '活动',
       'section.models': '按模型',
+      'section.subagents': '按子智能体',
       'row.total': '合计',
+      'row.thisSession': '本次会话',
+      'row.subagents': '子智能体（{count}）',
       'row.input': '输入',
       'row.cacheRead': '缓存读取',
       'row.cacheWrite': '缓存写入',
@@ -98,6 +108,8 @@ window.__ModuleLoader__.load({
       'value.tokensOnly': '{tokens}',
       'note.unpriced': '未定价的模型用量 — 调用：{calls} 次，Token：{tokens} 个。可在 cordis.patch.yml 的 pricing 中为该模型补充价格。',
       'note.models': '仅显示 {total} 个模型中的前 {shown} 个。',
+      'note.subagents': '仅显示 {total} 个子智能体中的前 {shown} 个。',
+      'note.team': '估算已包含 {count} 个子智能体会话；活动仅统计本次会话。',
       'note.about': '关于此估算',
       'note.estimate': '按 DeepSeek 价格估算，并非实际账单金额。',
       'note.offPeakSaved': '非高峰费率使本次估算减少约 {amount}。',
@@ -530,6 +542,183 @@ window.__ModuleLoader__.load({
       return { width: window.innerWidth, height: window.innerHeight }
     }
 
+    // ------------------------------------------------------------ agent teamwork
+
+    /** Subagent rows the panel lists before collapsing the rest into a count. */
+    const MAX_AGENT_ROWS = 8
+    /** Model rows the merged team view carries, matching the Host view's cap. */
+    const MAX_MODEL_ROWS = 8
+    /** Cost wire fields summed over the session and its subagent conversations. */
+    const COST_FIELDS = ['cost', 'costPeak', 'costOffPeak', 'saved', 'costInput', 'costCacheRead', 'costCacheWrite', 'costOutput']
+    /** Spend wire fields summed over the session and its subagent conversations. */
+    const SUM_FIELDS = [...COST_FIELDS, 'calls', 'pricedCalls', 'unpricedCalls', 'unpricedTokens']
+    /** Token buckets summed over the session and its subagent conversations. */
+    const TOKEN_FIELDS = ['input', 'cacheRead', 'cacheWrite', 'output', 'reasoning', 'total']
+
+    /**
+     * Local subagent conversations reachable from one session, in catalog
+     * order and breadth-first. Discovery reads only the `subagentCatalog`
+     * projections the Host already publishes to every client, so it never
+     * folds or replays another Session's log. External rows own no local
+     * Session and are skipped; repeated ids are visited once.
+     * @param projections - `projectionsBySession` from the Session list state.
+     * @param rootId - conversation whose team is collected.
+     * @returns direct and nested descendants with their catalog row.
+     */
+    function subagentTree(projections, rootId) {
+      const entries = []
+      const seen = new Set([rootId])
+      let frontier = [rootId]
+      while (frontier.length > 0) {
+        const next = []
+        for (const parentId of frontier) {
+          const catalog = projections?.[parentId]?.values?.subagentCatalog
+          if (!Array.isArray(catalog)) continue
+          for (const row of catalog) {
+            if (row === null || typeof row !== 'object') continue
+            if (row.mode === 'external' || typeof row.id !== 'string' || seen.has(row.id)) continue
+            seen.add(row.id)
+            entries.push({
+              id: row.id,
+              parentId,
+              label: typeof row.label === 'string' ? row.label : null,
+              name: typeof row.name === 'string' ? row.name : null,
+            })
+            next.push(row.id)
+          }
+        }
+        frontier = next
+      }
+      return entries
+    }
+
+    /** Round a summed cost to the six fraction digits the Host wire value uses. */
+    function roundSpendCost(value) {
+      return Math.round(value * 1e6) / 1e6
+    }
+
+    /**
+     * One wire-shaped view carrying the session and its team: costs, token
+     * buckets, calls, and model rows are summed, while the session's own
+     * activity counters (turns, steps, tools, retries, compactions) stay
+     * unscaled because a subagent conversation counts its own activity.
+     * @param own - the bound session's `sessionSpend` view.
+     * @param members - `{ entry, view }` rows for its subagent conversations.
+     * @returns the combined view plus the members' own share.
+     */
+    function combineSpend(own, members) {
+      if (members.length === 0) return { view: own, cost: 0, tokens: 0, calls: 0 }
+      const costs = {}
+      for (const field of SUM_FIELDS) costs[field] = own[field]
+      const tokens = {}
+      for (const field of TOKEN_FIELDS) tokens[field] = own.tokens[field]
+      const models = new Map()
+      const addModels = view => {
+        for (const model of Array.isArray(view.models) ? view.models : []) {
+          const merged = models.get(model.route)
+          if (merged === undefined) {
+            models.set(model.route, { ...model, tokens: { ...model.tokens } })
+            continue
+          }
+          merged.cost = roundSpendCost(merged.cost + model.cost)
+          merged.calls += model.calls
+          for (const field of TOKEN_FIELDS) merged.tokens[field] += model.tokens[field]
+        }
+      }
+      addModels(own)
+      let modelsTotal = own.modelsTotal
+      let cost = 0
+      let memberTokens = 0
+      let calls = 0
+      for (const member of members) {
+        const view = member.view
+        for (const field of SUM_FIELDS) costs[field] += view[field]
+        for (const field of TOKEN_FIELDS) tokens[field] += view.tokens[field]
+        cost += view.cost
+        memberTokens += view.tokens.total
+        calls += view.calls
+        modelsTotal += view.modelsTotal
+        addModels(view)
+      }
+      const merged = [...models.values()].sort((left, right) => right.cost - left.cost
+        || right.tokens.total - left.tokens.total
+        || (left.route < right.route ? -1 : left.route > right.route ? 1 : 0))
+      for (const field of COST_FIELDS) costs[field] = roundSpendCost(costs[field])
+      return {
+        view: {
+          ...own,
+          ...costs,
+          tokens,
+          modelsTotal,
+          models: merged.slice(0, MAX_MODEL_ROWS),
+        },
+        cost: roundSpendCost(cost),
+        tokens: memberTokens,
+        calls,
+      }
+    }
+
+    /** Best display name for one member: catalog label, agent name, title, then id. */
+    function memberLabelOf(member, list) {
+      if (member.label !== null && member.label !== '') return member.label
+      if (member.name !== null && member.name !== '') return member.name
+      const title = list?.byId?.[member.id]?.displayTitle
+      if (typeof title === 'string' && title !== '') return title
+      return member.id
+    }
+
+    /**
+     * Bind the composed team to the browser half. The combined value is
+     * derived from projection snapshots, so a running member's spend reaches
+     * the reading as soon as the Host publishes its next projection frame; a
+     * member whose projections are not loaded (for example a finished child
+     * after a page reload) is requested once through the registration's
+     * inject face and skipped until the Host answers.
+     * @param own - the bound session's spend view, or undefined before its first read.
+     * @param sessionId - the bound conversation, or undefined without a Session.
+     * @param list - Session list state from the standard `useSessions` hook.
+     * @param load - requests projections for sessions this client has not read.
+     * @returns the member rows and the combined view.
+     */
+    function useTeamSpend(own, sessionId, list, load) {
+      const projections = list?.projectionsBySession
+      const team = React.useMemo(() => {
+        if (typeof sessionId !== 'string') return { members: [], pending: [] }
+        const entries = subagentTree(projections, sessionId)
+        const members = []
+        const pending = []
+        for (const entry of entries) {
+          const snapshot = projections?.[entry.id]
+          const view = snapshot?.values?.sessionSpend
+          if (view === undefined || view === null) {
+            // Idle and never-read stores are worth one Host read; a loading,
+            // failed, or migration-required store is left alone.
+            if (snapshot === undefined || snapshot.state === 'idle') pending.push(entry.id)
+            continue
+          }
+          if (!(view.tokens?.total > 0)) continue
+          members.push({ ...entry, view })
+        }
+        return { members, pending }
+      }, [projections, sessionId])
+      // One request per session per binding: a read that fails is not retried
+      // on every frame, and a later mount asks again for a fresh answer.
+      const requested = React.useRef(null)
+      React.useEffect(() => {
+        if (typeof load !== 'function' || team.pending.length === 0) return
+        const seen = requested.current ?? (requested.current = new Set())
+        const missing = team.pending.filter(id => !seen.has(id))
+        if (missing.length === 0) return
+        for (const id of missing) seen.add(id)
+        load(missing)
+      }, [team.pending, load])
+      const combined = React.useMemo(
+        () => (own === undefined || own === null ? null : combineSpend(own, team.members)),
+        [own, team.members],
+      )
+      return { members: team.members, combined }
+    }
+
     // ---------------------------------------------------------------- components
 
     /** Money-like glyph: a note with its centre mark. */
@@ -585,8 +774,14 @@ window.__ModuleLoader__.load({
     /** The composer-dock spend pill and its click-open breakdown. */
     function SpendPill(props) {
       const useProjection = props.useProjection
+      const useSessions = props.useSessions
       const t = props.t
       const spend = typeof useProjection === 'function' ? useProjection('sessionSpend') : undefined
+      // `projectionsBySession` is the Host-wide cut every client keeps: it
+      // already carries each subagent's `sessionSpend`, so the team total needs
+      // no extra Host path, and a running member updates like any other row.
+      const list = typeof useSessions === 'function' ? useSessions(state => state) : undefined
+      const team = useTeamSpend(spend, props.sessionId, list, props.loadSubagents)
       const [open, setOpen] = React.useState(false)
       const [geometry, setGeometry] = React.useState(null)
       const [now, setNow] = React.useState(() => Date.now())
@@ -689,46 +884,64 @@ window.__ModuleLoader__.load({
       }, [open])
 
       // A Session without billed usage shows no pill at all: there is nothing to price.
-      if (spend === undefined || spend === null || spend.tokens.total === 0) return null
+      const total = team.combined === null ? null : team.combined.view
+      if (total === null || total.tokens.total === 0) return null
+      const members = team.members
+      const hasTeam = members.length > 0
 
-      const priced = spend.pricedCalls > 0
-      const cost = formatCost(spend.cost, spend.currencySymbol, spend.decimals)
-      const totalTokens = formatExactTokens(spend.tokens.total)
+      const priced = total.pricedCalls > 0
+      const cost = formatCost(total.cost, total.currencySymbol, total.decimals)
+      const totalTokens = formatExactTokens(total.tokens.total)
+      const ownCost = formatCost(spend.cost, spend.currencySymbol, spend.decimals)
+      const ownTokens = formatExactTokens(spend.tokens.total)
+      const teamCost = formatCost(team.combined.cost, total.currencySymbol, total.decimals)
+      const teamTokens = formatExactTokens(team.combined.tokens)
       const moneyTokens = (money, tokens) => t('value.moneyTokens', { cost: money, tokens })
       const tokensOnly = tokens => t('value.tokensOnly', { tokens })
-      const cacheHit = formatCacheHit(spend.tokens.cacheRead, spend.tokens.input + spend.tokens.cacheRead + spend.tokens.cacheWrite)
+      const cacheHit = formatCacheHit(total.tokens.cacheRead, total.tokens.input + total.tokens.cacheRead + total.tokens.cacheWrite)
 
-      const rateStatus = describeStatus(spend.schedule, now, t)
+      const rateStatus = describeStatus(total.schedule, now, t)
       const status = rateStatus === null ? null : h('div', { className: 'dsh-spend-status', 'data-tier': rateStatus.tier },
         h('span', { className: 'dsh-spend-status-dot', 'aria-hidden': true }),
         h('span', null, rateStatus.text),
       )
 
+      // With a team, the section splits the figures before listing the
+      // combined buckets; a lone session keeps the original single Total row.
+      const splitRows = hasTeam
+        ? [
+          [t('row.thisSession'), priced ? moneyTokens(ownCost, ownTokens) : tokensOnly(ownTokens)],
+          [t('row.subagents', { count: members.length }), priced ? moneyTokens(teamCost, teamTokens) : tokensOnly(teamTokens)],
+        ]
+        : []
+
       const spendRows = priced
         ? rows([
+          ...splitRows,
           [t('row.total'), moneyTokens(cost, totalTokens)],
-          spend.tokens.input > 0
-            ? [t('row.input'), moneyTokens(formatCost(spend.costInput, spend.currencySymbol, spend.decimals), formatExactTokens(spend.tokens.input))]
+          total.tokens.input > 0
+            ? [t('row.input'), moneyTokens(formatCost(total.costInput, total.currencySymbol, total.decimals), formatExactTokens(total.tokens.input))]
             : null,
-          spend.tokens.cacheRead > 0
-            ? [t('row.cacheRead'), moneyTokens(formatCost(spend.costCacheRead, spend.currencySymbol, spend.decimals), formatExactTokens(spend.tokens.cacheRead))]
+          total.tokens.cacheRead > 0
+            ? [t('row.cacheRead'), moneyTokens(formatCost(total.costCacheRead, total.currencySymbol, total.decimals), formatExactTokens(total.tokens.cacheRead))]
             : null,
-          spend.tokens.cacheWrite > 0
-            ? [t('row.cacheWrite'), moneyTokens(formatCost(spend.costCacheWrite, spend.currencySymbol, spend.decimals), formatExactTokens(spend.tokens.cacheWrite))]
+          total.tokens.cacheWrite > 0
+            ? [t('row.cacheWrite'), moneyTokens(formatCost(total.costCacheWrite, total.currencySymbol, total.decimals), formatExactTokens(total.tokens.cacheWrite))]
             : null,
-          spend.tokens.output > 0
-            ? [t('row.output'), moneyTokens(formatCost(spend.costOutput, spend.currencySymbol, spend.decimals), formatExactTokens(spend.tokens.output))]
+          total.tokens.output > 0
+            ? [t('row.output'), moneyTokens(formatCost(total.costOutput, total.currencySymbol, total.decimals), formatExactTokens(total.tokens.output))]
             : null,
-          spend.tokens.reasoning > 0 ? [t('row.reasoning'), tokensOnly(formatExactTokens(spend.tokens.reasoning))] : null,
+          total.tokens.reasoning > 0 ? [t('row.reasoning'), tokensOnly(formatExactTokens(total.tokens.reasoning))] : null,
           cacheHit !== null ? [t('row.cacheHit'), cacheHit] : null,
         ])
         : rows([
+          ...splitRows,
           [t('row.total'), tokensOnly(totalTokens)],
-          spend.tokens.input > 0 ? [t('row.input'), tokensOnly(formatExactTokens(spend.tokens.input))] : null,
-          spend.tokens.cacheRead > 0 ? [t('row.cacheRead'), tokensOnly(formatExactTokens(spend.tokens.cacheRead))] : null,
-          spend.tokens.cacheWrite > 0 ? [t('row.cacheWrite'), tokensOnly(formatExactTokens(spend.tokens.cacheWrite))] : null,
-          spend.tokens.output > 0 ? [t('row.output'), tokensOnly(formatExactTokens(spend.tokens.output))] : null,
-          spend.tokens.reasoning > 0 ? [t('row.reasoning'), tokensOnly(formatExactTokens(spend.tokens.reasoning))] : null,
+          total.tokens.input > 0 ? [t('row.input'), tokensOnly(formatExactTokens(total.tokens.input))] : null,
+          total.tokens.cacheRead > 0 ? [t('row.cacheRead'), tokensOnly(formatExactTokens(total.tokens.cacheRead))] : null,
+          total.tokens.cacheWrite > 0 ? [t('row.cacheWrite'), tokensOnly(formatExactTokens(total.tokens.cacheWrite))] : null,
+          total.tokens.output > 0 ? [t('row.output'), tokensOnly(formatExactTokens(total.tokens.output))] : null,
+          total.tokens.reasoning > 0 ? [t('row.reasoning'), tokensOnly(formatExactTokens(total.tokens.reasoning))] : null,
           cacheHit !== null ? [t('row.cacheHit'), cacheHit] : null,
         ])
 
@@ -741,26 +954,50 @@ window.__ModuleLoader__.load({
       if (spend.retries > 0) activityPairs.push([t('row.retries'), formatExactTokens(spend.retries)])
       if (spend.compactions > 0) activityPairs.push([t('row.compactions'), formatExactTokens(spend.compactions)])
 
-      const modelRows = spend.models.length > 1
-        ? rows(spend.models.map(model => [
+      const modelRows = total.models.length > 1
+        ? rows(total.models.map(model => [
           h('span', { className: 'dsh-spend-route' }, model.route),
           model.priced
-            ? moneyTokens(formatCost(model.cost, spend.currencySymbol, spend.decimals), formatExactTokens(model.tokens.total))
+            ? moneyTokens(formatCost(model.cost, total.currencySymbol, total.decimals), formatExactTokens(model.tokens.total))
             : tokensOnly(formatExactTokens(model.tokens.total)),
         ]))
         : null
 
+      // One row per teammate, so the added spend is attributable rather than
+      // a single opaque figure. Long teams keep the costliest rows.
+      const memberValue = view => {
+        const tokens = formatExactTokens(view.tokens.total)
+        return view.pricedCalls > 0
+          ? moneyTokens(formatCost(view.cost, view.currencySymbol, view.decimals), tokens)
+          : tokensOnly(tokens)
+      }
+      const agentRows = hasTeam
+        ? rows(members.slice(0, MAX_AGENT_ROWS).map(member => [
+          h('span', { className: 'dsh-spend-route' }, memberLabelOf(member, list)),
+          memberValue(member.view),
+        ]))
+        : null
+
       const notes = []
-      if (spend.unpricedCalls > 0) {
+      if (hasTeam) {
+        notes.push(h('div', { className: 'dsh-spend-note', key: 'team' }, t('note.team', { count: members.length })))
+      }
+      if (total.unpricedCalls > 0) {
         notes.push(h('div', { className: 'dsh-spend-note', key: 'unpriced' }, t('note.unpriced', {
-          calls: spend.unpricedCalls,
-          tokens: formatExactTokens(spend.unpricedTokens),
+          calls: total.unpricedCalls,
+          tokens: formatExactTokens(total.unpricedTokens),
         })))
       }
-      if (spend.modelsTotal > spend.models.length) {
+      if (total.modelsTotal > total.models.length) {
         notes.push(h('div', { className: 'dsh-spend-note', key: 'models' }, t('note.models', {
-          shown: spend.models.length,
-          total: spend.modelsTotal,
+          shown: total.models.length,
+          total: total.modelsTotal,
+        })))
+      }
+      if (members.length > MAX_AGENT_ROWS) {
+        notes.push(h('div', { className: 'dsh-spend-note', key: 'subagents' }, t('note.subagents', {
+          shown: MAX_AGENT_ROWS,
+          total: members.length,
         })))
       }
 
@@ -770,14 +1007,14 @@ window.__ModuleLoader__.load({
       if (priced) {
         aboutNotes.push(h('div', { className: 'dsh-spend-note', key: 'estimate' }, t('note.estimate')))
       }
-      if (priced && spend.saved > 0 && spend.schedule?.enabled) {
-        const savedText = formatCost(spend.saved, spend.currencySymbol, spend.decimals)
+      if (priced && total.saved > 0 && total.schedule?.enabled) {
+        const savedText = formatCost(total.saved, total.currencySymbol, total.decimals)
         if (!savedText.startsWith('<')) {
           aboutNotes.push(h('div', { className: 'dsh-spend-note', key: 'offPeakSaved' }, t('note.offPeakSaved', { amount: savedText })))
         }
       }
       if (priced) {
-        const rates = spend.rates ?? null
+        const rates = total.rates ?? null
         if (rates !== null && rates.source === 'deepseek' && rates.updatedAt !== null) {
           aboutNotes.push(h('div', { className: 'dsh-spend-note', key: 'rates' }, t('note.rates', { when: formatAge(rates.updatedAt, now, t) })))
         } else {
@@ -797,11 +1034,11 @@ window.__ModuleLoader__.load({
       // The tilde marks the resting reading as an estimate; the dialog repeats
       // the word in its title and keeps the caveats in the disclosure below.
       const estimateCost = cost.startsWith('<') ? cost : `${ESTIMATE_PREFIX}${cost}`
-      const headline = priced ? estimateCost : t('pill.tokens', { tokens: formatCompactTokens(spend.tokens.total) })
-      const dialogValue = priced ? cost : t('pill.tokens', { tokens: formatCompactTokens(spend.tokens.total) })
+      const headline = priced ? estimateCost : t('pill.tokens', { tokens: formatCompactTokens(total.tokens.total) })
+      const dialogValue = priced ? cost : t('pill.tokens', { tokens: formatCompactTokens(total.tokens.total) })
       const accessible = priced
-        ? t('pill.spendTitle', { cost })
-        : t('pill.tokensTitle', { tokens: formatExactTokens(spend.tokens.total) })
+        ? (hasTeam ? t('pill.spendTeamTitle', { cost, count: members.length }) : t('pill.spendTitle', { cost }))
+        : t('pill.tokensTitle', { tokens: formatExactTokens(total.tokens.total) })
 
       const panelStyle = geometry === null
         ? { visibility: 'hidden', top: 0, left: 0 }
@@ -852,6 +1089,7 @@ window.__ModuleLoader__.load({
               h(Section, { title: priced ? t('section.spend') : t('section.tokens') }, spendRows),
               h(Section, { title: t('section.activity') }, rows(activityPairs)),
               modelRows === null ? null : h(Section, { title: t('section.models') }, modelRows),
+              agentRows === null ? null : h(Section, { title: t('section.subagents') }, agentRows),
               notes,
               about,
             ),
@@ -874,6 +1112,10 @@ window.__ModuleLoader__.load({
         formatCost,
         computePanelPlacement,
         overlayTopInset,
+        subagentTree,
+        combineSpend,
+        memberLabelOf,
+        MAX_AGENT_ROWS,
         dictionaries: { EN, ZH },
       },
       apply(ctx) {
@@ -886,12 +1128,30 @@ window.__ModuleLoader__.load({
         }, 'spend-tracker.styles')
         ctx.effect(() => ctx.locale.register(NS, 'en', EN), 'spend-tracker.locale.en')
         ctx.effect(() => ctx.locale.register(NS, 'zh', ZH), 'spend-tracker.locale.zh')
-        ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({
-          name: 'conversation.composer.dock',
-          id: 'spend',
-          order: 2,
-          locale: NS,
-        }, SpendPill))
+        ctx.slots.inject('conversation.composer.dock', () => {
+          /** Sessions this binding already asked the Host to read. */
+          const requested = new Set()
+          // The Session controller owns the projection stores this reading
+          // borrows from; without it the team section falls back to whatever
+          // live projection cuts the page already holds. The lookup is lazy so
+          // it does not depend on which package happened to activate first.
+          const loadSubagents = ids => {
+            const sessions = typeof ctx.get === 'function' ? ctx.get('sessions') : undefined
+            if (sessions === undefined || typeof sessions.refreshProjections !== 'function') return
+            for (const id of ids) {
+              if (requested.has(id)) continue
+              requested.add(id)
+              void sessions.refreshProjections(id)
+            }
+          }
+          return ctx.slots.register({
+            name: 'conversation.composer.dock',
+            id: 'spend',
+            order: 2,
+            locale: NS,
+            inject: () => ({ loadSubagents }),
+          }, SpendPill)
+        })
       },
     }
   },

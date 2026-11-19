@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- A chat that uses **agent teamwork** now counts its whole team. Every local subagent conversation reachable from the open chat — direct or nested — contributes its own provider-reported spend, tokens, calls, and model rows to the reading, and the panel lists each member under **By subagent**. The team total updates from the Host's projection frames as members settle.
+- A **This session** / **Subagents (N)** split appears above the combined Total when the chat has a team; a chat without subagents keeps the single Total row.
+- A finished subagent whose projections are not loaded (after a page reload, for example) is read from the Host once when the chat opens.
+
 ### Changed
 
 - The estimate's provenance, the off-peak saving, and the price-table freshness now sit behind a collapsed **About this estimate** row, so the panel opens on the figures and the notes stay out of the way until opened.
